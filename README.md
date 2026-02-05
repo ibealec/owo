@@ -1,14 +1,20 @@
 <h1 align="center">
   <br>
-  <a href="https://github.com/context-labs/uwu"><img src="https://raw.githubusercontent.com/context-labs/uwu/main/assets/uwu.jpg" alt="uwu" width="200" style="border-radius:8px;"></a>
+  <a href="https://github.com/context-labs/uwu"><img src="https://raw.githubusercontent.com/context-labs/uwu/main/assets/uwu.jpg" alt="owo" width="200" style="border-radius:8px;"></a>
    <br>
-  uwu
+  owo
   <br>
 </h1>
 
 <h4 align="center">✨ Natural language to shell commands using AI ✨</h4>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/owo-cli">
+    <img alt="npm version" src="https://img.shields.io/npm/v/owo-cli.svg" />
+  </a>
+  <a href="https://github.com/context-labs/uwu/releases/latest">
+    <img alt="GitHub Release" src="https://img.shields.io/github/v/release/context-labs/uwu" />
+  </a>
   <a href="https://x.com/inference_net">
     <img alt="X (formerly Twitter)" src="https://img.shields.io/badge/X-@inference.net-1DA1F2?style=flat&logo=x&logoColor=white" />
   </a>
@@ -30,56 +36,58 @@
 
 ## What is this?
 
-`uwu` is a lightweight, focused CLI tool that converts natural language into shell commands using Large Language Models (LLMs) like GPT-5. Unlike comprehensive agentic development tools like [Claude Code](https://www.anthropic.com/claude-code) or [Cursor](https://cursor.com), `uwu` has a simple, singular purpose: **helping you write shell commands faster, without switching context**.
+`owo` is a lightweight, focused CLI tool that converts natural language into shell commands using Large Language Models (LLMs) like GPT-5. Unlike comprehensive agentic development tools like [Claude Code](https://www.anthropic.com/claude-code) or [Cursor](https://cursor.com), `owo` has a simple, singular purpose: **helping you write shell commands faster, without switching context**.
 
-`uwu` is not a replacement for comprehensive agentic development tools -- it is simple tool that excels at one thing. Consider it the terminal equivalent of quickly searching "how do I..." and getting an immediately runnable answer.
+`owo` is not a replacement for comprehensive agentic development tools -- it is simple tool that excels at one thing. Consider it the terminal equivalent of quickly searching "how do I..." and getting an immediately runnable answer.
 
-![uwu demo](https://raw.githubusercontent.com/context-labs/uwu/main/assets/uwu.gif)
+![owo demo](https://raw.githubusercontent.com/context-labs/uwu/main/assets/uwu.gif)
 
 After a response is generated, you can edit it before pressing enter to execute the command. This is useful if you want to add flags, or other modifications to the command.
 
 ## Installation
 
-### 1. Clone the repo
+### Option A: npm (Recommended)
+
+Requires [Node.js](https://nodejs.org) 18+.
+
+```bash
+npm install -g owo-cli
+```
+
+### Option B: Homebrew (macOS / Linux)
+
+```bash
+brew install ibealec/owo/owo-cli
+```
+
+### Option C: Build from source
+
+Requires [Bun](https://bun.sh).
 
 ```bash
 git clone https://github.com/context-labs/uwu.git
 cd uwu
-```
-
-### 2. Install dependencies and build
-
-Make sure you have [Bun](https://bun.sh) installed.
-
-```bash
 bun install
 bun run build
+chmod +x dist/owo-cli
+mv dist/owo-cli /usr/local/bin/owo-cli
 ```
 
-This will produce the `uwu-cli` binary in the `dist/` build output directory.
+### Configuration
 
-### 3. Make the binary executable and move it into your PATH
-
-```bash
-chmod +x dist/uwu-cli
-mv dist/uwu-cli /usr/local/bin/uwu-cli
-```
-
-### 4. Configuration
-
-`uwu` is configured through a single `config.json` file. The first time you run `uwu`, it will automatically create a default configuration file to get you started.
+`owo` is configured through a single `config.json` file. The first time you run `owo`, it will automatically create a default configuration file to get you started.
 
 #### Configuration File Location
 
 The `config.json` file is located in a standard, platform-specific directory:
 
-- **Linux:** `~/.config/uwu/config.json`
-- **macOS:** `~/Library/Preferences/uwu/config.json`
-- **Windows:** `%APPDATA%\\uwu\\config.json` (e.g., `C:\\Users\\<user>\\AppData\\Roaming\\uwu\\config.json`)
+- **Linux:** `~/.config/owo/config.json`
+- **macOS:** `~/Library/Preferences/owo/config.json`
+- **Windows:** `%APPDATA%\\owo\\config.json` (e.g., `C:\\Users\\<user>\\AppData\\Roaming\\owo\\config.json`)
 
 #### Provider Types
 
-You can configure `uwu` to use different AI providers by setting the `type` field in your `config.json`. The supported types are `"OpenAI"`, `"Custom"`, `"Claude"`, `"Gemini"`, and `"GitHub"`.
+You can configure `owo` to use different AI providers by setting the `type` field in your `config.json`. The supported types are `"OpenAI"`, `"Custom"`, `"Claude"`, `"Gemini"`, `"GitHub"`, and `"ClaudeCode"`.
 
 Below are examples for each provider type.
 
@@ -97,7 +105,7 @@ This is the default configuration.
 }
 ```
 
-- `apiKey`: Your OpenAI API key. If this is empty, `uwu` will use the `OPENAI_API_KEY` environment variable.
+- `apiKey`: Your OpenAI API key. If empty, `owo` will fall back to the `OPENAI_API_KEY` environment variable.
 
 ---
 
@@ -113,7 +121,7 @@ Uses the native Anthropic API.
 }
 ```
 
-- `apiKey`: Your Anthropic API key.
+- `apiKey`: Your Anthropic API key. If empty, `owo` will fall back to the `ANTHROPIC_API_KEY` environment variable.
 
 ---
 
@@ -129,7 +137,7 @@ Uses the native Google Gemini API.
 }
 ```
 
-- `apiKey`: Your Google AI Studio API key.
+- `apiKey`: Your Google AI Studio API key. If empty, `owo` will fall back to the `GOOGLE_API_KEY` environment variable.
 
 ---
 
@@ -143,11 +151,27 @@ Uses multiple free to use GitHub models.
 }
 ```
 
-- `apiKey`: Your GitHub token.
+- `apiKey`: Your GitHub token. If empty, `owo` will fall back to the `GITHUB_TOKEN` environment variable.
 
 ---
 
-##### **5. Custom / Local Models (`type: "Custom"`)**
+##### **5. Claude Code (`type: "ClaudeCode"`)**
+
+Uses the locally installed [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI. No API key needed -- Claude Code handles its own authentication.
+
+```json
+{
+  "type": "ClaudeCode",
+  "model": "sonnet"
+}
+```
+
+- `model`: Optional. The model to use (e.g., `"sonnet"`, `"opus"`). If omitted, Claude Code uses its default.
+- **Requires**: The `claude` CLI to be installed and authenticated.
+
+---
+
+##### **6. Custom / Local Models (`type: "Custom"`)**
 
 This type is for any other OpenAI-compatible API endpoint, such as Ollama, LM Studio, or a third-party proxy service.
 
@@ -168,7 +192,7 @@ This type is for any other OpenAI-compatible API endpoint, such as Ollama, LM St
 
 #### Context Configuration (Optional)
 
-`uwu` can include recent command history from your shell to provide better context for command generation. This feature is disabled by default but can be enabled. When enabled, `uwu` includes the raw last N lines from your shell history (e.g., bash, zsh, fish), preserving any extra metadata your shell records:
+`owo` can include recent command history from your shell to provide better context for command generation. This feature is disabled by default but can be enabled. When enabled, `owo` includes the raw last N lines from your shell history (e.g., bash, zsh, fish), preserving any extra metadata your shell records:
 
 ```json
 {
@@ -184,15 +208,15 @@ This type is for any other OpenAI-compatible API endpoint, such as Ollama, LM St
 
 - `enabled`: Whether to include command history context (default: `false`)
 - `maxHistoryCommands`: Number of recent commands to include (default: `10`)
-  When enabled, `uwu` automatically detects and parses history from bash, zsh, and fish shells.
+  When enabled, `owo` automatically detects and parses history from bash, zsh, and fish shells.
 
 ##### Notes on history scanning performance
 
-- **Chunk size unit**: When scanning shell history files, `uwu` reads from the end of the file in fixed-size chunks of 64 KiB. This is not currently configurable but can be made if desired.
+- **Chunk size unit**: When scanning shell history files, `owo` reads from the end of the file in fixed-size chunks of 64 KiB. This is not currently configurable but can be made if desired.
 
 ##### Windows notes
 
-- **History detection**: On Windows, `uwu` searches for PowerShell PSReadLine history at:
+- **History detection**: On Windows, `owo` searches for PowerShell PSReadLine history at:
   - `%APPDATA%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt` (Windows PowerShell 5.x)
   - `%APPDATA%\Microsoft\PowerShell\PSReadLine\ConsoleHost_history.txt` (PowerShell 7+)
     If not found, it falls back to Unix-like history files that may exist when using Git Bash/MSYS/Cygwin (e.g., `.bash_history`, `.zsh_history`).
@@ -200,7 +224,7 @@ This type is for any other OpenAI-compatible API endpoint, such as Ollama, LM St
 
 #### Clipboard Integration
 
-`uwu` can automatically copy generated commands to your system clipboard:
+`owo` can automatically copy generated commands to your system clipboard:
 
 ```json
 {
@@ -213,25 +237,25 @@ This type is for any other OpenAI-compatible API endpoint, such as Ollama, LM St
 
 - `clipboard`: Whether to automatically copy generated commands to clipboard (default: `false`)
 
-When enabled, every command generated by `uwu` is automatically copied to your system clipboard, making it easy to paste commands elsewhere. The clipboard integration works cross-platform:
+When enabled, every command generated by `owo` is automatically copied to your system clipboard, making it easy to paste commands elsewhere. The clipboard integration works cross-platform:
 - **macOS**: Uses `pbcopy`
 - **Windows**: Uses `clip`
 - **Linux**: Uses `xclip` or `xsel` (falls back to `xsel` if `xclip` is not available)
 
 **Note**: On Linux, you'll need either `xclip` or `xsel` installed for clipboard functionality to work.
 
-### 5. Configure the `uwu` helper function
+### Shell Helper Function
 
-This function lets you type `uwu <description>` and get an editable command preloaded in your shell.
+This function lets you type `owo <description>` and get an editable command preloaded in your shell.
 
 #### zsh
 
 ```zsh
 # ~/.zshrc
 
-uwu() {
+owo() {
   local cmd
-  cmd="$(uwu-cli "$@")" || return
+  cmd="$(owo-cli "$@")" || return
   vared -p "" -c cmd
   print -s -- "$cmd"   # add to history
   eval "$cmd"
@@ -246,9 +270,9 @@ source ~/.zshrc
 
 #### bash
 ```bash
-uwu() {
+owo() {
   local cmd
-  cmd="$(uwu-cli "$@")" || return
+  cmd="$(owo-cli "$@")" || return
   # requires interactive shell and Bash 4+
   read -e -i "$cmd" -p "" cmd || return
   builtin history -s -- "$cmd"
@@ -263,7 +287,7 @@ Note: This only applies to Windows with Powershell installed
 To your Powershell profile, add this snippet
 
 ```Powershell
-function uwu {
+function owo {
     param(
         [Parameter(ValueFromRemainingArguments=$true)]
         $args
@@ -306,7 +330,7 @@ function uwu {
         public static void SendCommand(string text) {
             IntPtr hIn = GetStdHandle(STD_INPUT_HANDLE);
             var records = new INPUT_RECORD[text.Length];
-            
+
             int i = 0;
             for (; i < text.Length; i++) {
                 records[i].EventType = KEY_EVENT;
@@ -319,19 +343,19 @@ function uwu {
             WriteConsoleInput(hIn, records, i, out written);
         }
     }';
-    $cmd = uwu-cli @args;
+    $cmd = owo-cli @args;
     Add-Type -TypeDefinition $Source;
     [ConsoleInjector]::SendCommand($cmd)
 }
 ```
 
-This will work for Powershell terminals. To add this functionality to Conhost / Terminal, save this as `uwu.bat` and let it be accessible in ```PATH``` (you must do the Powershell step as well). For example,
+This will work for Powershell terminals. To add this functionality to Conhost / Terminal, save this as `owo.bat` and let it be accessible in ```PATH``` (you must do the Powershell step as well). For example,
 
 ```Batch
 :: assumes that ECHO ON and CHCP 437 is user preference
 @ECHO OFF
 CHCP 437 >NUL
-POWERSHELL uwu %*
+POWERSHELL owo %*
 @ECHO ON
 ```
 
@@ -340,7 +364,7 @@ POWERSHELL uwu %*
 Once installed and configured:
 
 ```bash
-uwu generate a new ssh key called uwu-key and add it to the ssh agent
+owo generate a new ssh key called owo-key and add it to the ssh agent
 ```
 
 You'll see the generated command in your shell's input line. Press **Enter** to run it, or edit it first. Executed commands will show up in your shell's history just like any other command.

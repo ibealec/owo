@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import ModelClient, { isUnexpected } from '@azure-rest/ai-inference';
 import { AzureKeyCredential } from '@azure/core-auth';
-import { $ } from "bun";
+import { execSync } from "child_process";
 import os from "os";
 import fs from "fs";
 import path from "path";
@@ -12,7 +12,7 @@ import envPaths from "env-paths";
 import { DEFAULT_CONTEXT_CONFIG, buildContextHistory } from "./context";
 import type { ContextConfig } from "./context";
 
-type ProviderType = "OpenAI" | "Custom" | "Claude" | "Gemini" | "GitHub";
+type ProviderType = "OpenAI" | "Custom" | "Claude" | "Gemini" | "GitHub" | "ClaudeCode";
 
 interface Config {
   type: ProviderType;
@@ -23,6 +23,8 @@ interface Config {
   clipboard?: boolean;
 }
 
+const CLAUDE_MAX_TOKENS = 1024;
+
 const DEFAULT_CONFIG: Config = {
   type: "OpenAI",
   model: "gpt-4.1",
@@ -30,8 +32,20 @@ const DEFAULT_CONFIG: Config = {
   clipboard: false,
 };
 
+function getEnvApiKey(type: ProviderType): string | undefined {
+  switch (type) {
+    case "Claude": return process.env.ANTHROPIC_API_KEY;
+    case "Gemini": return process.env.GOOGLE_API_KEY;
+    case "GitHub": return process.env.GITHUB_TOKEN;
+    case "ClaudeCode": return undefined;
+    case "OpenAI":
+    case "Custom":
+    default: return process.env.OPENAI_API_KEY;
+  }
+}
+
 function getConfig(): Config {
-  const paths = envPaths("uwu", { suffix: "" });
+  const paths = envPaths("owo", { suffix: "" });
   const configPath = path.join(paths.config, "config.json");
 
   if (!fs.existsSync(configPath)) {
@@ -53,7 +67,7 @@ function getConfig(): Config {
       // The newly created file has an empty key, so subsequent runs will also fall back to the env var until the user edits the file.
       return {
         ...DEFAULT_CONFIG,
-        apiKey: process.env.OPENAI_API_KEY,
+        apiKey: getEnvApiKey(DEFAULT_CONFIG.type),
       };
     } catch (error) {
       console.error("Error creating the configuration file at:", configPath);
@@ -67,10 +81,11 @@ function getConfig(): Config {
     const userConfig = JSON.parse(rawConfig);
 
     // Merge user config with defaults, and also check env for API key as a fallback.
+    const providerType = userConfig.type || DEFAULT_CONFIG.type;
     const mergedConfig = {
       ...DEFAULT_CONFIG,
       ...userConfig,
-      apiKey: userConfig.apiKey || process.env.OPENAI_API_KEY,
+      apiKey: userConfig.apiKey || getEnvApiKey(providerType),
     };
 
     // Ensure context config has all defaults filled in
@@ -88,6 +103,7 @@ function getConfig(): Config {
       mergedConfig.clipboard = false;
     }
 
+    validateConfig(mergedConfig);
     return mergedConfig;
   } catch (error) {
     console.error(
@@ -99,9 +115,48 @@ function getConfig(): Config {
   }
 }
 
+const VALID_PROVIDERS: ProviderType[] = ["OpenAI", "Custom", "Claude", "Gemini", "GitHub", "ClaudeCode"];
+
+function validateConfig(config: Config): void {
+  if (!VALID_PROVIDERS.includes(config.type)) {
+    console.error(`Error: Invalid provider type "${config.type}".`);
+    console.error(`Valid types: ${VALID_PROVIDERS.join(", ")}`);
+    process.exit(1);
+  }
+
+  if (!config.model && config.type !== "GitHub") {
+    console.error(`Error: "model" is required in config.json for provider "${config.type}".`);
+    process.exit(1);
+  }
+
+  if (config.type === "Custom" && !config.baseURL) {
+    console.error('Error: "baseURL" is required in config.json when using the "Custom" provider.');
+    process.exit(1);
+  }
+
+  if (config.context?.maxHistoryCommands !== undefined) {
+    const max = config.context.maxHistoryCommands;
+    if (typeof max !== "number" || max <= 0 || !Number.isInteger(max)) {
+      console.error('Error: "context.maxHistoryCommands" must be a positive integer.');
+      process.exit(1);
+    }
+  }
+}
+
+async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const status = error?.status ?? error?.statusCode ?? error?.code;
+      const isRetryable = status === 429 || (typeof status === "number" && status >= 500);
+      if (!isRetryable || attempt >= retries) throw error;
+      await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+}
+
 async function copyToClipboard(text: string): Promise<void> {
-  const { execSync } = await import('child_process');
-  
   try {
     if (process.platform === "darwin") {
       execSync("pbcopy", { input: text });
@@ -120,14 +175,118 @@ async function copyToClipboard(text: string): Promise<void> {
   }
 }
 
-const config = getConfig();
+const VERSION = "1.1.0";
 
-// The rest of the arguments are the command description
-const commandDescription = process.argv.slice(2).join(" ").trim();
+function printHelp(): void {
+  console.log(`owo v${VERSION} - Natural language to shell commands using AI
+
+Usage:
+  owo <command description>    Generate a shell command from a description
+  owo config path              Print config file location
+  owo config show              Display current config (API keys masked)
+  owo config set <key> <value> Set a config value
+
+Options:
+  --help, -h       Show this help message
+  --version, -v    Show version number
+
+Examples:
+  owo list all files larger than 100MB
+  owo find and replace foo with bar in all js files
+  owo compress all png files in current directory
+
+Providers: OpenAI, Custom, Claude, Gemini, GitHub, ClaudeCode
+
+Config file location varies by platform:
+  Linux:   ~/.config/owo/config.json
+  macOS:   ~/Library/Preferences/owo/config.json
+  Windows: %APPDATA%\\owo\\config.json`);
+}
+
+function handleConfigSubcommand(args: string[]): void {
+  const paths = envPaths("owo", { suffix: "" });
+  const configPath = path.join(paths.config, "config.json");
+
+  const sub = args[0];
+
+  if (sub === "path") {
+    console.log(configPath);
+    process.exit(0);
+  }
+
+  if (sub === "show") {
+    if (!fs.existsSync(configPath)) {
+      console.error("No config file found. Run `owo` once to create a default config.");
+      process.exit(1);
+    }
+    const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    // Mask API key
+    if (raw.apiKey) {
+      const key = String(raw.apiKey);
+      raw.apiKey = key.length > 8
+        ? key.slice(0, 4) + "..." + key.slice(-4)
+        : "****";
+    }
+    console.log(JSON.stringify(raw, null, 2));
+    process.exit(0);
+  }
+
+  if (sub === "set") {
+    const key = args[1];
+    const value = args[2];
+    if (!key || value === undefined) {
+      console.error("Usage: owo config set <key> <value>");
+      process.exit(1);
+    }
+
+    let existing: Record<string, any> = {};
+    if (fs.existsSync(configPath)) {
+      existing = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    } else {
+      fs.mkdirSync(paths.config, { recursive: true });
+    }
+
+    // Parse booleans and numbers
+    let parsed: any = value;
+    if (value === "true") parsed = true;
+    else if (value === "false") parsed = false;
+    else if (!isNaN(Number(value)) && value !== "") parsed = Number(value);
+
+    existing[key] = parsed;
+    fs.writeFileSync(configPath, JSON.stringify(existing, null, 2));
+    console.log(`Set ${key} = ${JSON.stringify(parsed)}`);
+    process.exit(0);
+  }
+
+  console.error(`Unknown config subcommand: ${sub}`);
+  console.error("Usage: owo config <path|show|set>");
+  process.exit(1);
+}
+
+// --- Argument Parsing ---
+const rawArgs = process.argv.slice(2);
+
+if (rawArgs.includes("--help") || rawArgs.includes("-h")) {
+  printHelp();
+  process.exit(0);
+}
+
+if (rawArgs.includes("--version") || rawArgs.includes("-v")) {
+  console.log(VERSION);
+  process.exit(0);
+}
+
+if (rawArgs[0] === "config") {
+  handleConfigSubcommand(rawArgs.slice(1));
+}
+
+const config = getConfig();
+const commandDescription = rawArgs.join(" ").trim();
 
 if (!commandDescription) {
   console.error("Error: No command description provided.");
-  console.error("Usage: uwu <command description>");
+  console.error("Usage: owo <command description>");
+  console.error('Run "owo --help" for more information.');
   process.exit(1);
 }
 
@@ -191,12 +350,11 @@ Free Memory: ${(os.freemem() / 1024 / 1024).toFixed(0)} MB
   let lsCommand = "";
   try {
     if (process.platform === "win32") {
-      // Use PowerShell-compatible dir for a simple listing
       lsCommand = "dir /b";
-      lsResult = await $`cmd /c ${lsCommand}`.text();
+      lsResult = execSync("cmd /c dir /b", { encoding: "utf-8" });
     } else {
       lsCommand = "ls";
-      lsResult = await $`${lsCommand}`.text();
+      lsResult = execSync("ls", { encoding: "utf-8" });
     }
   } catch (error) {
     lsResult = "Unable to get directory listing";
@@ -222,10 +380,15 @@ Result of \`${lsCommand}\` in working directory:
 ${lsResult}
 ${historyContext}`;
 
-  if (!config.apiKey) {
+  if (config.type !== "ClaudeCode" && !config.apiKey) {
+    const envVar = {
+      OpenAI: "OPENAI_API_KEY", Custom: "OPENAI_API_KEY",
+      Claude: "ANTHROPIC_API_KEY", Gemini: "GOOGLE_API_KEY",
+      GitHub: "GITHUB_TOKEN",
+    }[config.type] || "OPENAI_API_KEY";
     console.error("Error: API key not found.");
     console.error(
-      "Please provide an API key in your config.json file or by setting the OPENAI_API_KEY environment variable."
+      `Please provide an API key in your config.json file or by setting the ${envVar} environment variable.`
     );
     process.exit(1);
   }
@@ -256,7 +419,7 @@ ${historyContext}`;
       const response = await anthropic.messages.create({
         model: config.model,
         system: systemPrompt,
-        max_tokens: 1024,
+        max_tokens: CLAUDE_MAX_TOKENS,
         messages: [
           {
             role: "user",
@@ -264,13 +427,13 @@ ${historyContext}`;
           },
         ],
       });
-      // @ts-ignore
-      const raw = response.content?.[0].text ?? response?.text ?? '';
+      const firstBlock = response.content?.[0];
+      const raw = (firstBlock && firstBlock.type === 'text' ? firstBlock.text : '') ?? '';
       return sanitizeResponse(String(raw));
     }
 
     case "Gemini": {
-      const genAI = new GoogleGenerativeAI(config.apiKey);
+      const genAI = new GoogleGenerativeAI(config.apiKey!);
       const model = genAI.getGenerativeModel({ model: config.model });
       const prompt = `${systemPrompt}\n\nCommand description: ${commandDescription}`;
       const result = await model.generateContent(prompt);
@@ -284,7 +447,7 @@ ${historyContext}`;
       const model = config.model ? config.model : "openai/gpt-4.1-nano";
       const github = ModelClient(
         endpoint,
-        new AzureKeyCredential(config.apiKey)
+        new AzureKeyCredential(config.apiKey!)
       );
 
       const response = await github.path("/chat/completions").post({
@@ -293,8 +456,6 @@ ${historyContext}`;
             { role: "system", content: systemPrompt },
             { role: "user", content: `Command description: ${commandDescription}` },
           ],
-          temperature: 1.0,
-          top_p: 1.0,
           model: model,
         },
       });
@@ -304,7 +465,38 @@ ${historyContext}`;
       }
 
       const content = response.body.choices?.[0]?.message?.content;
-      return content?.trim() || "";
+      return sanitizeResponse(String(content ?? ""));
+    }
+
+    case "ClaudeCode": {
+      // Check if claude CLI is available
+      try {
+        execSync('claude --version', { stdio: 'pipe' });
+      } catch {
+        console.error("Error: Claude Code CLI not found.");
+        console.error("Install it from: https://docs.anthropic.com/en/docs/claude-code");
+        process.exit(1);
+      }
+
+      const args = [
+        "claude", "-p",
+        "--no-session-persistence",
+        "--tools", '""',
+        "--system-prompt", JSON.stringify(systemPrompt),
+      ];
+
+      if (config.model) {
+        args.push("--model", config.model);
+      }
+
+      args.push(JSON.stringify(`Command description: ${commandDescription}`));
+
+      const result = execSync(args.join(" "), {
+        encoding: 'utf-8',
+        timeout: 30000,
+      });
+
+      return sanitizeResponse(result);
     }
 
     default:
@@ -317,7 +509,7 @@ ${historyContext}`;
 
 // --- Main Execution ---
 try {
-  const command = await generateCommand(config, commandDescription);
+  const command = await withRetry(() => generateCommand(config, commandDescription));
 
   // Copy to clipboard if enabled
   if (config.clipboard) {

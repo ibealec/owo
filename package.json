@@ -1,17 +1,45 @@
 {
-  "name": "uwu",
-  "module": "index.ts",
+  "name": "owo-cli",
+  "version": "1.1.0",
+  "description": "Natural language to shell commands using AI",
   "type": "module",
-  "private": true,
+  "bin": {
+    "owo-cli": "dist/owo-cli.js"
+  },
+  "files": [
+    "dist/owo-cli.js"
+  ],
   "scripts": {
     "dev": "bun run index.ts",
-    "build": "bun build ./index.ts --compile --outfile dist/uwu-cli"
+    "build": "bun build ./index.ts --compile --outfile dist/owo-cli",
+    "build:npm": "bun build ./index.ts --outfile dist/owo-cli.js --target node && echo '#!/usr/bin/env node' | cat - dist/owo-cli.js > dist/owo-cli.tmp.js && mv dist/owo-cli.tmp.js dist/owo-cli.js",
+    "prepublishOnly": "npm run build:npm"
+  },
+  "keywords": [
+    "cli",
+    "shell",
+    "ai",
+    "natural-language",
+    "openai",
+    "claude",
+    "gemini",
+    "llm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/context-labs/uwu.git"
+  },
+  "homepage": "https://github.com/context-labs/uwu#readme",
+  "bugs": {
+    "url": "https://github.com/context-labs/uwu/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
   },
   "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
+    "@types/bun": "latest",
+    "@types/node": "^22.0.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.22.0",
@@ -19,7 +47,6 @@
     "@azure/core-auth": "^1.10.0",
     "@google/generative-ai": "^0.16.0",
     "env-paths": "^3.0.0",
-    "openai": "^5.12.2",
-    "zod": "3.25.76"
+    "openai": "^5.12.2"
   }
 }
