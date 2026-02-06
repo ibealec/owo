@@ -1,7 +1,7 @@
 class OwoCli < Formula
   desc "Natural language to shell commands using AI"
   homepage "https://github.com/ibealec/owo"
-  version "1.3.0"
+  version "1.4.0"
   license "MIT"
 
   on_macos do
