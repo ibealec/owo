@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Fira+Code:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -367,10 +368,13 @@ nav.scrolled{
   display:block;
 }
 .step-icon{
-  font-size:32px;
+  width:32px;
+  height:32px;
   margin-bottom:16px;
   display:block;
-  filter:saturate(1.4);
+  color:var(--cyan);
+  stroke-width:1.5;
+  filter:drop-shadow(0 0 6px #00ffe560) drop-shadow(0 0 14px #00ffe530);
 }
 .step-name{
   font-family:var(--pixel);
@@ -413,9 +417,13 @@ nav.scrolled{
 }
 .feature-card:hover::after{opacity:1}
 .feature-icon{
-  font-size:28px;
+  width:28px;
+  height:28px;
   margin-bottom:16px;
   display:block;
+  color:var(--magenta);
+  stroke-width:1.5;
+  filter:drop-shadow(0 0 6px #ff2dff60) drop-shadow(0 0 14px #ff2dff30);
 }
 .feature-name{
   font-family:var(--pixel);
@@ -604,7 +612,15 @@ nav.scrolled{
   border-color:rgba(57,255,20,0.3);
   box-shadow:0 0 16px rgba(57,255,20,0.05);
 }
-.provider-icon{font-size:32px;margin-bottom:12px;display:block}
+.provider-icon{
+  width:32px;
+  height:32px;
+  margin-bottom:12px;
+  display:inline-block;
+  color:var(--cyan);
+  stroke-width:1.5;
+  filter:drop-shadow(0 0 6px #00ffe560) drop-shadow(0 0 14px #00ffe530);
+}
 .provider-name{
   font-family:var(--pixel);
   font-size:9px;
@@ -825,19 +841,19 @@ footer{
     <div class="how-grid">
       <div class="step-card reveal reveal-delay-1">
         <span class="step-num">01</span>
-        <span class="step-icon">&#9997;&#65039;</span>
+        <i data-lucide="pencil" class="step-icon"></i>
         <div class="step-name">DESCRIBE</div>
         <p class="step-desc">Tell owo what you need in plain English. No syntax to remember, no man pages to read.</p>
       </div>
       <div class="step-card reveal reveal-delay-2">
         <span class="step-num">02</span>
-        <span class="step-icon">&#9889;</span>
+        <i data-lucide="zap" class="step-icon"></i>
         <div class="step-name">GENERATE</div>
         <p class="step-desc">AI converts your words into the perfect shell command, with full context of your environment.</p>
       </div>
       <div class="step-card reveal reveal-delay-3">
         <span class="step-num">03</span>
-        <span class="step-icon">&#9654;&#65039;</span>
+        <i data-lucide="play" class="step-icon"></i>
         <div class="step-name">EXECUTE</div>
         <p class="step-desc">Review, edit if needed, and run &mdash; right in your terminal. Commands auto-add to shell history.</p>
       </div>
@@ -854,32 +870,32 @@ footer{
     <h2 class="section-title reveal reveal-delay-1">Small tool. Big power.</h2>
     <div class="features-grid">
       <div class="feature-card reveal reveal-delay-1">
-        <span class="feature-icon">&#127918;</span>
+        <i data-lucide="cpu" class="feature-icon"></i>
         <div class="feature-name">6 AI PROVIDERS</div>
         <p class="feature-desc">OpenAI, Claude, Gemini, GitHub Models, Ollama/LM Studio, and Claude Code. Your choice.</p>
       </div>
       <div class="feature-card reveal reveal-delay-2">
-        <span class="feature-icon">&#128065;&#65039;</span>
+        <i data-lucide="scan-eye" class="feature-icon"></i>
         <div class="feature-name">CONTEXT-AWARE</div>
         <p class="feature-desc">Understands your OS, shell, directory structure, and recent commands for precise results.</p>
       </div>
       <div class="feature-card reveal reveal-delay-3">
-        <span class="feature-icon">&#128218;</span>
+        <i data-lucide="history" class="feature-icon"></i>
         <div class="feature-name">SHELL HISTORY</div>
         <p class="feature-desc">Commands auto-added to history. Optionally include recent history for better context.</p>
       </div>
       <div class="feature-card reveal reveal-delay-1">
-        <span class="feature-icon">&#9998;&#65039;</span>
+        <i data-lucide="square-pen" class="feature-icon"></i>
         <div class="feature-name">EDIT BEFORE RUN</div>
         <p class="feature-desc">Modify any generated command in-shell before executing. Full control, always.</p>
       </div>
       <div class="feature-card reveal reveal-delay-2">
-        <span class="feature-icon">&#128203;</span>
+        <i data-lucide="clipboard-copy" class="feature-icon"></i>
         <div class="feature-name">CLIPBOARD READY</div>
         <p class="feature-desc">Auto-copy to system clipboard. Cross-platform support for macOS, Linux, and Windows.</p>
       </div>
       <div class="feature-card reveal reveal-delay-3">
-        <span class="feature-icon">&#128161;</span>
+        <i data-lucide="lightbulb" class="feature-icon"></i>
         <div class="feature-name">EXPLAIN MODE</div>
         <p class="feature-desc">Use the -e flag to get plain-English explanations of what commands actually do.</p>
       </div>
@@ -989,33 +1005,33 @@ footer{
     <h2 class="section-title reveal reveal-delay-1">Your AI. Your rules.</h2>
     <div class="providers-grid">
       <div class="provider-card reveal reveal-delay-1">
-        <span class="provider-icon">&#129302;</span>
+        <i data-lucide="bot" class="provider-icon"></i>
         <div class="provider-name">OPENAI</div>
         <p class="provider-note">GPT-4o, GPT-4.1, and more. The classic choice.</p>
       </div>
       <div class="provider-card reveal reveal-delay-2">
-        <span class="provider-icon">&#128172;</span>
+        <i data-lucide="message-square" class="provider-icon"></i>
         <div class="provider-name">CLAUDE</div>
         <p class="provider-note">Anthropic's Claude models. Precise and thoughtful.</p>
       </div>
       <div class="provider-card reveal reveal-delay-3">
-        <span class="provider-icon">&#10024;</span>
+        <i data-lucide="sparkles" class="provider-icon"></i>
         <div class="provider-name">GEMINI</div>
         <p class="provider-note">Google's Gemini family. Fast and capable.</p>
       </div>
       <div class="provider-card reveal reveal-delay-1">
-        <span class="provider-icon">&#128025;</span>
+        <i data-lucide="github" class="provider-icon"></i>
         <div class="provider-name">GITHUB MODELS</div>
         <p class="provider-note">Use your GitHub token. Multiple models available.</p>
       </div>
       <div class="provider-card local-highlight reveal reveal-delay-2">
-        <span class="provider-icon">&#127968;</span>
+        <i data-lucide="server" class="provider-icon"></i>
         <div class="provider-name">CUSTOM / LOCAL</div>
         <p class="provider-note">Ollama, LM Studio, or any OpenAI-compatible endpoint.</p>
         <span class="provider-badge">PRIVATE</span>
       </div>
       <div class="provider-card reveal reveal-delay-3">
-        <span class="provider-icon">&#9000;&#65039;</span>
+        <i data-lucide="terminal" class="provider-icon"></i>
         <div class="provider-name">CLAUDE CODE</div>
         <p class="provider-note">Direct integration with Claude Code's context.</p>
       </div>
@@ -1062,7 +1078,7 @@ footer{
       <a href="https://github.com/ibealec/owo" target="_blank" rel="noopener">Star on GitHub &#11088;</a>
       <a href="https://www.npmjs.com/package/owo-cli" target="_blank" rel="noopener">npm</a>
     </div>
-    <p class="footer-copy">Built by ibealec &middot; MIT License &middot; &copy; Use Context, Inc.</p>
+    <p class="footer-copy">Built by ibealec &middot; MIT License</p>
   </div>
 </footer>
 
@@ -1181,6 +1197,9 @@ document.querySelectorAll('.install-tab').forEach(tab=>{
     document.getElementById('panel-'+tab.dataset.tab).classList.add('active');
   });
 });
+
+// === LUCIDE ICONS ===
+lucide.createIcons();
 
 // === COPY BUTTONS ===
 document.querySelectorAll('.copy-btn').forEach(btn=>{
