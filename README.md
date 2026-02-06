@@ -73,6 +73,22 @@ chmod +x dist/owo-cli
 mv dist/owo-cli /usr/local/bin/owo-cli
 ```
 
+### Quick Start
+
+The fastest way to get started is with the interactive setup wizard:
+
+```bash
+owo setup
+```
+
+This walks you through picking a provider, entering your API key, choosing a model, and enabling optional features. It writes the config file for you.
+
+Alternatively, you can skip setup entirely with inline flags:
+
+```bash
+owo -p openai -k sk-your-key -m gpt-4.1 list all files larger than 100MB
+```
+
 ### Configuration
 
 `owo` is configured through a single `config.json` file. The first time you run `owo`, it will automatically create a default configuration file to get you started.
@@ -368,6 +384,99 @@ owo generate a new ssh key called owo-key and add it to the ssh agent
 ```
 
 You'll see the generated command in your shell's input line. Press **Enter** to run it, or edit it first. Executed commands will show up in your shell's history just like any other command.
+
+### CLI Flags
+
+All flags can override config values for a single invocation without editing `config.json`.
+
+#### Provider Overrides
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--provider <type>` | `-p` | Override provider (`openai`, `claude`, `gemini`, `github`, `claudecode`, `custom`) |
+| `--model <name>` | `-m` | Override model |
+| `--api-key <key>` | `-k` | Override API key (highest precedence: flag > config > env var) |
+| `--base-url <url>` | | Override base URL for custom/OpenAI-compatible providers |
+
+```bash
+# Use Claude for a single query without changing config
+owo -p claude -m claude-sonnet-4-20250514 find large log files
+
+# Use a local Ollama model
+owo -p custom --base-url http://localhost:11434/v1 -m llama3 show disk usage
+```
+
+#### Behavior
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--copy` | `-c` | Copy generated command to clipboard |
+| `--no-copy` | | Don't copy to clipboard |
+| `--history` | | Include shell history context |
+| `--no-history` | | Exclude shell history context |
+| `--history-count <n>` | | Number of history commands to include (implies `--history`) |
+
+```bash
+# Copy command even if config has clipboard disabled
+owo --copy find all zombie processes
+
+# Use history context for a single query
+owo --history redo that but with sudo
+```
+
+#### Output
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--exec` | `-x` | Execute the generated command after `Execute? [y/N]` confirmation |
+| `--explain` | `-e` | Show a brief explanation of the command on stderr |
+| `--raw` | `-r` | Suppress all non-command output (clean for piping) |
+
+```bash
+# Execute with confirmation
+owo -x delete all .tmp files older than 7 days
+
+# Get an explanation alongside the command
+owo -e find all files larger than 100mb
+
+# Pipe-safe output
+result=$(owo -r show my public IP)
+```
+
+#### Debugging
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--dry-run` | `-n` | Print the prompt that would be sent without making an API call |
+| `--verbose` | `-V` | Print diagnostics (provider, model, latency) to stderr |
+| `--retry <n>` | | Override retry count (default: 2) |
+
+```bash
+# See exactly what would be sent to the API
+owo --dry-run find large files
+
+# Debug with full diagnostics
+owo -V convert all heic files to jpg
+
+# Fail fast with no retries
+owo --retry 0 list disk usage
+```
+
+#### Stdin / Pipe Support
+
+`owo` auto-detects piped input and reads the description from stdin:
+
+```bash
+echo "find files larger than 100mb" | owo
+```
+
+#### The `--` Separator
+
+Use `--` to separate flags from the description when your description looks like a flag:
+
+```bash
+owo -- -rf delete these files
+```
 
 ## License
 
