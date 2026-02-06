@@ -13,6 +13,7 @@ import envPaths from "env-paths";
 import { DEFAULT_CONTEXT_CONFIG, buildContextHistory } from "./context";
 import type { ContextConfig } from "./context";
 import { interactivePrompt } from "./interactive";
+import { loginGitHub, clearAuth, getOAuthToken, readAuthStore } from "./auth";
 
 type ProviderType = "OpenAI" | "Custom" | "Claude" | "Gemini" | "GitHub" | "ClaudeCode";
 
@@ -85,6 +86,16 @@ function parseArgs(argv: string[]): ParsedArgs {
   }
   if (argv[0] === "setup") {
     result.subcommand = "setup";
+    result.subcommandArgs = argv.slice(1);
+    return result;
+  }
+  if (argv[0] === "login") {
+    result.subcommand = "login";
+    result.subcommandArgs = argv.slice(1);
+    return result;
+  }
+  if (argv[0] === "logout") {
+    result.subcommand = "logout";
     result.subcommandArgs = argv.slice(1);
     return result;
   }
@@ -330,6 +341,8 @@ function printHelp(): void {
 Usage:
   owo <command description>    Generate a shell command from a description
   owo setup                    Interactive first-run configuration wizard
+  owo login github              Authenticate via GitHub OAuth for free-tier models
+  owo logout github             Remove stored GitHub OAuth token
   owo config path              Print config file location
   owo config show              Display current config (API keys masked)
   owo config set <key> <value> Set a config value
@@ -405,6 +418,14 @@ function handleConfigSubcommand(args: string[]): void {
         : "****";
     }
     console.log(JSON.stringify(raw, null, 2));
+
+    // Show OAuth status
+    const authStore = readAuthStore();
+    if (authStore.github) {
+      console.log("\nOAuth: GitHub (authenticated)");
+    } else {
+      console.log("\nOAuth: none (run `owo login github` to authenticate)");
+    }
     process.exit(0);
   }
 
@@ -479,9 +500,42 @@ async function handleSetupSubcommand(): Promise<void> {
   }
   const providerType = providers[providerIdx]!;
 
-  // 2. API key
+  // 2. API key (with OAuth alternative for GitHub)
   let apiKey = "";
   if (providerType !== "ClaudeCode") {
+    if (providerType === "GitHub") {
+      const oauthAnswer = await prompt(rl, `\nUse OAuth login (free, no API key needed)? [Y/n]: `);
+      if (oauthAnswer.trim().toLowerCase() !== "n") {
+        rl.close();
+        await loginGitHub();
+        // Reopen rl for remaining prompts
+        const rl2 = createReadlineInterface();
+        const defaultModel2 = DEFAULT_MODELS[providerType];
+        const modelAnswer2 = await prompt(rl2, `\nModel [${defaultModel2}]: `);
+        const model2 = modelAnswer2.trim() || defaultModel2;
+        const clipAnswer2 = await prompt(rl2, "\nAuto-copy commands to clipboard? [y/N]: ");
+        const clipboard2 = clipAnswer2.trim().toLowerCase() === "y";
+        const histAnswer2 = await prompt(rl2, "Include shell history context? [y/N]: ");
+        const historyEnabled2 = histAnswer2.trim().toLowerCase() === "y";
+        rl2.close();
+
+        const newConfig: Record<string, any> = {
+          type: providerType,
+          apiKey: "",
+          model: model2,
+          clipboard: clipboard2,
+          context: { enabled: historyEnabled2, maxHistoryCommands: 10 },
+        };
+        const paths = envPaths("owo", { suffix: "" });
+        const configPath = path.join(paths.config, "config.json");
+        fs.mkdirSync(paths.config, { recursive: true });
+        fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2));
+        console.error(`\nConfiguration saved to: ${configPath}`);
+        console.error("You're all set! Try: owo list all files larger than 100MB\n");
+        process.exit(0);
+      }
+    }
+
     const envVar = {
       OpenAI: "OPENAI_API_KEY", Custom: "OPENAI_API_KEY",
       Claude: "ANTHROPIC_API_KEY", Gemini: "GOOGLE_API_KEY",
@@ -537,6 +591,31 @@ async function handleSetupSubcommand(): Promise<void> {
   process.exit(0);
 }
 
+async function handleLoginSubcommand(args: string[]): Promise<void> {
+  const provider = args[0]?.toLowerCase();
+
+  if (provider !== "github") {
+    console.error("Usage: owo login github");
+    process.exit(1);
+  }
+
+  await loginGitHub();
+  process.exit(0);
+}
+
+function handleLogoutSubcommand(args: string[]): void {
+  const provider = args[0]?.toLowerCase();
+
+  if (provider && provider !== "github") {
+    console.error("Usage: owo logout github");
+    process.exit(1);
+  }
+
+  clearAuth(provider || "github");
+  console.error("Logged out of GitHub.");
+  process.exit(0);
+}
+
 // --- Argument Parsing ---
 const rawArgs = process.argv.slice(2);
 const parsed = parseArgs(rawArgs);
@@ -557,6 +636,14 @@ if (parsed.subcommand === "config") {
 
 if (parsed.subcommand === "setup") {
   await handleSetupSubcommand();
+}
+
+if (parsed.subcommand === "login") {
+  await handleLoginSubcommand(parsed.subcommandArgs);
+}
+
+if (parsed.subcommand === "logout") {
+  handleLogoutSubcommand(parsed.subcommandArgs);
 }
 
 // Read from stdin if piped
@@ -595,9 +682,17 @@ if (parsed.historyCount !== undefined) {
   config.context.maxHistoryCommands = parsed.historyCount;
 }
 
-// Re-resolve API key after provider override (flag > config > env)
+// Re-resolve API key after provider override (flag > config > env > OAuth)
 if (!parsed.apiKey && !config.apiKey) {
   config.apiKey = getEnvApiKey(config.type);
+}
+
+// Fall back to OAuth token if no API key found
+if (!config.apiKey && config.type !== "ClaudeCode") {
+  const oauthToken = getOAuthToken(config.type);
+  if (oauthToken) {
+    config.apiKey = oauthToken;
+  }
 }
 
 validateConfig(config);
@@ -739,6 +834,9 @@ async function generateCommand(
     console.error(
       `Please provide an API key in your config.json file or by setting the ${envVar} environment variable.`
     );
+    if (config.type === "GitHub") {
+      console.error("Or run `owo login github` to authenticate via OAuth.");
+    }
     process.exit(1);
   }
 
