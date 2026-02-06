@@ -1,22 +1,22 @@
 class OwoCli < Formula
   desc "Natural language to shell commands using AI"
   homepage "https://github.com/ibealec/owo"
-  version "1.3.1"
+  version "1.4.1"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/ibealec/owo/releases/download/v#{version}/owo-darwin-arm64"
-      sha256 "717c35ece7b4fe8681b30718d63174f4254f4ec50e55162d780148883f3e43c5"
+      sha256 "4e2a30309a9a10bf71984487a3c7ffdc0752026eeab54db9476a8f655640cb11"
     else
       url "https://github.com/ibealec/owo/releases/download/v#{version}/owo-darwin-x64"
-      sha256 "0c3962ffce7d7f54fd73423afbd3b0564c2e8d4a4338303539169db797e6eee1"
+      sha256 "8c3c8d779379a8962ee615a3587f6702333ded6b7ff822670a21f5a98ebfc2ae"
     end
   end
 
   on_linux do
     url "https://github.com/ibealec/owo/releases/download/v#{version}/owo-linux-x64"
-    sha256 "1be42d6891d464211eafc63a27fbb1c9e5e9fc1ecd46430559ba83f95765612e"
+    sha256 "a016b6bad2f728da07970bc90072ff54eb995911728bb5c53cd298a67f31fdb6"
   end
 
   def install
