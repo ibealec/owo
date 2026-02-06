@@ -175,7 +175,7 @@ async function copyToClipboard(text: string): Promise<void> {
   }
 }
 
-const VERSION = "1.1.0";
+const VERSION = "1.1.1";
 
 function printHelp(): void {
   console.log(`owo v${VERSION} - Natural language to shell commands using AI
@@ -522,6 +522,6 @@ try {
 
   console.log(command);
 } catch (error: any) {
-  console.error("Error generating command:", error.message);
+  console.error(`Error generating command (provider: ${config.type}, model: ${config.model}):`, error.message);
   process.exit(1);
 }
