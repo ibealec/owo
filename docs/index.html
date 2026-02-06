@@ -612,6 +612,13 @@ nav.scrolled{
   border-color:rgba(57,255,20,0.3);
   box-shadow:0 0 16px rgba(57,255,20,0.05);
 }
+.provider-card.free-highlight{
+  border-color:rgba(57,255,20,0.15);
+}
+.provider-card.free-highlight:hover{
+  border-color:rgba(57,255,20,0.3);
+  box-shadow:0 0 16px rgba(57,255,20,0.05);
+}
 .provider-icon{
   width:32px;
   height:32px;
@@ -809,7 +816,7 @@ footer{
   <div class="container">
     <div class="hero-inner">
       <div class="hero-content">
-        <span class="hero-badge reveal">v1.3.1 &mdash; READY TO PLAY</span>
+        <span class="hero-badge reveal">v1.7.1 &mdash; READY TO PLAY</span>
         <h1 class="hero-title reveal reveal-delay-1">owo</h1>
         <p class="hero-tagline reveal reveal-delay-2">Natural language <span class="arrow">&rarr;</span> shell commands. Instantly.</p>
         <p class="hero-sub reveal reveal-delay-3">A lightweight CLI that turns what you mean into what you type. Powered by AI, designed for developers who move fast.</p>
@@ -987,7 +994,7 @@ footer{
           <div class="source-steps">
             <code>git clone https://github.com/ibealec/owo.git && cd owo</code>
             <code>bun install && bun run build</code>
-            <code>chmod +x dist/owo-cli && mv dist/owo-cli /usr/local/bin/owo-cli</code>
+            <code>chmod +x dist/owo && mv dist/owo /usr/local/bin/owo</code>
           </div>
           <p class="install-note" style="margin-top:16px">Requires <code>Bun</code> runtime. Then run <code>owo setup</code> to configure.</p>
         </div>
@@ -1019,10 +1026,11 @@ footer{
         <div class="provider-name">GEMINI</div>
         <p class="provider-note">Google's Gemini family. Fast and capable.</p>
       </div>
-      <div class="provider-card reveal reveal-delay-1">
+      <div class="provider-card free-highlight reveal reveal-delay-1">
         <i data-lucide="github" class="provider-icon"></i>
         <div class="provider-name">GITHUB MODELS</div>
-        <p class="provider-note">Use your GitHub token. Multiple models available.</p>
+        <p class="provider-note">Free AI models with your GitHub account. No credit card needed.</p>
+        <span class="provider-badge">FREE TIER</span>
       </div>
       <div class="provider-card local-highlight reveal reveal-delay-2">
         <i data-lucide="server" class="provider-icon"></i>
@@ -1137,6 +1145,8 @@ reveals.forEach(r=>io.observe(r));
     {cmd:'owo compress this directory into a tar.gz', out:'tar -czf archive.tar.gz .'},
     {cmd:'owo show disk usage sorted by size', out:'du -sh * | sort -rh'},
     {cmd:'owo kill the process on port 3000', out:'lsof -ti:3000 | xargs kill -9'},
+    {cmd:'owo show my public IP address', out:'curl -s ifconfig.me'},
+    {cmd:'owo list all running docker containers', out:'docker ps --format "table {{.Names}}\\t{{.Status}}"'},
   ];
   let idx=0;
   function typeText(el,text,speed,cb){

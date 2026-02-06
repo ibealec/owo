@@ -22,6 +22,8 @@
 
 <p align="center">
   <a href="#what-is-this">What is this?</a> •
+  <a href="#quick-examples">Quick Examples</a> •
+  <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
   <a href="#contributing">Contributing</a>
@@ -36,6 +38,27 @@
 ![owo demo](https://raw.githubusercontent.com/ibealec/owo/main/assets/uwu.gif)
 
 After a response is generated, you can edit it before pressing enter to execute the command. This is useful if you want to add flags, or other modifications to the command.
+
+## Quick Examples
+
+```bash
+owo find all files larger than 100MB
+owo kill the process on port 3000
+owo show disk usage sorted by size
+owo compress this directory into a tar.gz
+```
+
+No memorizing flags, no searching Stack Overflow -- just describe what you want.
+
+## Features
+
+- **6 AI providers** -- OpenAI, Claude, Gemini, GitHub Models, local models (Ollama/LM Studio), and Claude Code
+- **Context-aware** -- automatically includes your OS, shell, working directory, and recent commands
+- **Edit before executing** -- review and modify generated commands before running them
+- **Shell history integration** -- executed commands are saved to your shell history like any other command
+- **Clipboard support** -- optionally copy generated commands to your clipboard
+- **Explain mode** -- use the `-e` flag to get a plain-English explanation of any generated command
+- **Cross-platform** -- works on macOS, Linux, and Windows
 
 ## Installation
 
@@ -62,8 +85,8 @@ git clone https://github.com/ibealec/owo.git
 cd owo
 bun install
 bun run build
-chmod +x dist/owo-cli
-mv dist/owo-cli /usr/local/bin/owo-cli
+chmod +x dist/owo
+mv dist/owo /usr/local/bin/owo
 ```
 
 ### Quick Start
@@ -477,4 +500,15 @@ owo -- -rf delete these files
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a pull request.
+Contributions are welcome! The codebase is written in TypeScript and built with [Bun](https://bun.sh).
+
+To get started locally:
+
+```bash
+git clone https://github.com/ibealec/owo.git
+cd owo
+bun install
+bun run dev
+```
+
+If you find a bug, have a feature request, or want to improve the docs, please [open an issue](https://github.com/ibealec/owo/issues) or submit a pull request. All contributions -- big or small -- are appreciated.
