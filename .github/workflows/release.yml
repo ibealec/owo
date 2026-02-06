@@ -80,7 +80,7 @@ jobs:
           echo "darwin_x64=$(sha256sum artifacts/owo-darwin-x64/owo-darwin-x64 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
           echo "linux_x64=$(sha256sum artifacts/owo-linux-x64/owo-linux-x64 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
-      - name: Update formula
+      - name: Update formula in this repo
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           sed -i "s/^  version \".*\"/  version \"${VERSION}\"/" Formula/owo-cli.rb
@@ -88,13 +88,69 @@ jobs:
           sed -i "/owo-darwin-x64/{n;s/sha256 \"[a-f0-9]*\"/sha256 \"${{ steps.hashes.outputs.darwin_x64 }}\"/}" Formula/owo-cli.rb
           sed -i "/owo-linux-x64/{n;s/sha256 \"[a-f0-9]*\"/sha256 \"${{ steps.hashes.outputs.linux_x64 }}\"/}" Formula/owo-cli.rb
 
-      - name: Commit and push
+      - name: Commit and push to this repo
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/owo-cli.rb
           git commit -m "Update Homebrew formula for ${GITHUB_REF_NAME} [skip ci]"
           git push origin main
+
+      - name: Update homebrew tap repo
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          git clone https://x-access-token:${TAP_TOKEN}@github.com/ibealec/homebrew-owo.git tap
+          cd tap
+
+          cat > Formula/owo-cli.rb << 'FORMULA'
+          class OwoCli < Formula
+            desc "Natural language to shell commands using AI"
+            homepage "https://github.com/ibealec/owo"
+            version "VERSION_PLACEHOLDER"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/ibealec/owo/releases/download/v#{version}/owo-darwin-arm64"
+                sha256 "DARWIN_ARM64_PLACEHOLDER"
+              else
+                url "https://github.com/ibealec/owo/releases/download/v#{version}/owo-darwin-x64"
+                sha256 "DARWIN_X64_PLACEHOLDER"
+              end
+            end
+
+            on_linux do
+              url "https://github.com/ibealec/owo/releases/download/v#{version}/owo-linux-x64"
+              sha256 "LINUX_X64_PLACEHOLDER"
+            end
+
+            def install
+              binary = Dir["owo-*"].first || "owo"
+              bin.install binary => "owo"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/owo --version")
+            end
+          end
+          FORMULA
+
+          # Replace placeholders
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/" Formula/owo-cli.rb
+          sed -i "s/DARWIN_ARM64_PLACEHOLDER/${{ steps.hashes.outputs.darwin_arm64 }}/" Formula/owo-cli.rb
+          sed -i "s/DARWIN_X64_PLACEHOLDER/${{ steps.hashes.outputs.darwin_x64 }}/" Formula/owo-cli.rb
+          sed -i "s/LINUX_X64_PLACEHOLDER/${{ steps.hashes.outputs.linux_x64 }}/" Formula/owo-cli.rb
+
+          # Fix indentation (heredoc adds extra spaces)
+          sed -i 's/^          //' Formula/owo-cli.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/owo-cli.rb
+          git commit -m "Update owo-cli to ${VERSION}"
+          git push
 
   publish-npm:
     runs-on: ubuntu-latest
@@ -120,5 +176,3 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
