@@ -12,6 +12,7 @@ import envPaths from "env-paths";
 
 import { DEFAULT_CONTEXT_CONFIG, buildContextHistory } from "./context";
 import type { ContextConfig } from "./context";
+import { interactivePrompt } from "./interactive";
 
 type ProviderType = "OpenAI" | "Custom" | "Claude" | "Gemini" | "GitHub" | "ClaudeCode";
 
@@ -864,6 +865,7 @@ if (parsed.dryRun) {
 
 // --- Main Execution ---
 const retryCount = parsed.retry !== undefined ? parsed.retry : 2;
+const isInteractive = process.stdout.isTTY && !parsed.raw;
 
 try {
   if (parsed.verbose) {
@@ -896,35 +898,80 @@ try {
     console.error(`Latency: ${elapsed}ms`);
   }
 
-  // Copy to clipboard if enabled
-  if (config.clipboard) {
-    try {
-      await copyToClipboard(command);
-      if (!parsed.raw) console.error("Copied to clipboard.");
-    } catch (clipboardError: any) {
-      if (!parsed.raw) console.error("Warning: Failed to copy to clipboard:", clipboardError.message);
+  if (isInteractive) {
+    // --- Interactive mode ---
+    if (explanation) {
+      console.error(`\n\x1b[90m  ${explanation}\x1b[0m`);
     }
-  }
 
-  // Print explanation to stderr
-  if (explanation && !parsed.raw) {
-    console.error(`\nExplanation: ${explanation}`);
-  }
+    let currentCommand = command;
+    let currentDescription = commandDescription;
 
-  // Output command
-  console.log(command);
+    while (true) {
+      const result = await interactivePrompt(currentCommand);
 
-  // Execute mode
-  if (parsed.exec) {
-    const rl = createReadlineInterface();
-    const answer = await prompt(rl, "\nExecute? [y/N]: ");
-    rl.close();
+      if (result.action === "run") {
+        if (config.clipboard) {
+          try { await copyToClipboard(result.command); } catch {}
+        }
+        try {
+          execSync(result.command, { stdio: "inherit" });
+        } catch (execError: any) {
+          process.exit(execError.status ?? 1);
+        }
+        break;
+      }
 
-    if (answer.trim().toLowerCase() === "y") {
+      if (result.action === "cancel") {
+        break;
+      }
+
+      if (result.action === "revise") {
+        currentDescription =
+          `${commandDescription}\n\nRevision request: ${result.feedback}\nPrevious command was: ${currentCommand}`;
+        process.stderr.write(`\x1b[2m  thinking...\x1b[0m`);
+        try {
+          const newRaw = await withRetry(
+            () => generateCommand(config, currentDescription, false),
+            retryCount
+          );
+          currentCommand = newRaw;
+          process.stderr.write(`\r\x1b[K`);
+        } catch (reviseError: any) {
+          process.stderr.write(`\r\x1b[K`);
+          console.error(`  Error: ${reviseError.message}`);
+          break;
+        }
+      }
+    }
+  } else {
+    // --- Non-interactive mode (piped output) ---
+    if (config.clipboard) {
       try {
-        execSync(command, { stdio: "inherit" });
-      } catch (execError: any) {
-        process.exit(execError.status ?? 1);
+        await copyToClipboard(command);
+        if (!parsed.raw) console.error("Copied to clipboard.");
+      } catch (clipboardError: any) {
+        if (!parsed.raw) console.error("Warning: Failed to copy to clipboard:", clipboardError.message);
+      }
+    }
+
+    if (explanation && !parsed.raw) {
+      console.error(`\nExplanation: ${explanation}`);
+    }
+
+    console.log(command);
+
+    if (parsed.exec) {
+      const rl = createReadlineInterface();
+      const answer = await prompt(rl, "\nExecute? [y/N]: ");
+      rl.close();
+
+      if (answer.trim().toLowerCase() === "y") {
+        try {
+          execSync(command, { stdio: "inherit" });
+        } catch (execError: any) {
+          process.exit(execError.status ?? 1);
+        }
       }
     }
   }
