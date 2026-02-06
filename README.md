@@ -1,28 +1,21 @@
 <h1 align="center">
-  <br>
-  <a href="https://github.com/context-labs/uwu"><img src="https://raw.githubusercontent.com/context-labs/uwu/main/assets/uwu.jpg" alt="owo" width="200" style="border-radius:8px;"></a>
-   <br>
   owo
-  <br>
 </h1>
 
-<h4 align="center">✨ Natural language to shell commands using AI ✨</h4>
+<h4 align="center">Natural language to shell commands using AI — a supercharged <a href="https://github.com/context-labs/uwu">uwu</a></h4>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/owo-cli">
     <img alt="npm version" src="https://img.shields.io/npm/v/owo-cli.svg" />
   </a>
-  <a href="https://github.com/context-labs/uwu/releases/latest">
-    <img alt="GitHub Release" src="https://img.shields.io/github/v/release/context-labs/uwu" />
-  </a>
-  <a href="https://x.com/inference_net">
-    <img alt="X (formerly Twitter)" src="https://img.shields.io/badge/X-@inference.net-1DA1F2?style=flat&logo=x&logoColor=white" />
+  <a href="https://github.com/ibealec/owo/releases/latest">
+    <img alt="GitHub Release" src="https://img.shields.io/github/v/release/ibealec/owo" />
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img alt="License" src="https://img.shields.io/badge/License-MIT-yellow.svg" />
   </a>
-  <a href="https://github.com/context-labs/uwu">
-    <img alt="GitHub" src="https://img.shields.io/github/stars/context-labs/uwu?style=social" />
+  <a href="https://github.com/ibealec/owo">
+    <img alt="GitHub" src="https://img.shields.io/github/stars/ibealec/owo?style=social" />
   </a>
 
 </p>
@@ -40,7 +33,7 @@
 
 `owo` is not a replacement for comprehensive agentic development tools -- it is simple tool that excels at one thing. Consider it the terminal equivalent of quickly searching "how do I..." and getting an immediately runnable answer.
 
-![owo demo](https://raw.githubusercontent.com/context-labs/uwu/main/assets/uwu.gif)
+![owo demo](https://raw.githubusercontent.com/ibealec/owo/main/assets/uwu.gif)
 
 After a response is generated, you can edit it before pressing enter to execute the command. This is useful if you want to add flags, or other modifications to the command.
 
@@ -65,8 +58,8 @@ brew install ibealec/owo/owo-cli
 Requires [Bun](https://bun.sh).
 
 ```bash
-git clone https://github.com/context-labs/uwu.git
-cd uwu
+git clone https://github.com/ibealec/owo.git
+cd owo
 bun install
 bun run build
 chmod +x dist/owo-cli

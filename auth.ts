@@ -1,23 +1,13 @@
 import fs from "fs";
 import path from "path";
+import readline from "readline";
 import { execSync } from "child_process";
 import envPaths from "env-paths";
 
-// --- OAuth Client IDs ---
-// Safe to embed in public clients — device flow does not use a client secret.
-const GITHUB_CLIENT_ID = "Iv23liau441BGknzpuiH";
-
 // --- Types ---
 
-interface GitHubToken {
-  access_token: string;
-  token_type: string;
-  scope: string;
-  created_at: number;
-}
-
 interface AuthStore {
-  github?: GitHubToken;
+  github?: { token: string; source: "gh-cli" | "pat" };
 }
 
 // --- Token Storage ---
@@ -46,7 +36,6 @@ function writeAuthStore(store: AuthStore): void {
 
 export function clearAuth(provider?: string): void {
   if (!provider) {
-    // Clear all
     const authPath = getAuthPath();
     if (fs.existsSync(authPath)) fs.unlinkSync(authPath);
     return;
@@ -74,116 +63,114 @@ function openBrowser(url: string): void {
   }
 }
 
-// --- GitHub Device Flow ---
+// --- gh CLI Detection ---
+
+function getGhCliToken(): string | undefined {
+  try {
+    const token = execSync("gh auth token", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    return token || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isGhCliInstalled(): boolean {
+  try {
+    execSync("gh --version", { stdio: ["pipe", "pipe", "pipe"] });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// --- Login Flow ---
 
 export async function loginGitHub(): Promise<void> {
-  console.error("\nGitHub OAuth Login (Device Flow)\n");
+  console.error("\nGitHub Login\n");
 
-  // Step 1: Request device code
-  const codeRes = await fetch("https://github.com/login/device/code", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      client_id: GITHUB_CLIENT_ID,
-      scope: "read:user",
-    }),
-  });
-
-  if (!codeRes.ok) {
-    console.error(`Error: Failed to start device flow (HTTP ${codeRes.status})`);
-    process.exit(1);
-  }
-
-  const codeData = await codeRes.json() as {
-    device_code: string;
-    user_code: string;
-    verification_uri: string;
-    expires_in: number;
-    interval: number;
-  };
-
-  // Step 2: Display code and open browser
-  console.error(`  Enter this code: ${codeData.user_code}`);
-  console.error(`  URL: ${codeData.verification_uri}\n`);
-  openBrowser(codeData.verification_uri);
-  console.error("  Waiting for authorization...\n");
-
-  // Step 3: Poll for token
-  let interval = (codeData.interval || 5) * 1000;
-  const expiresAt = Date.now() + codeData.expires_in * 1000;
-
-  while (Date.now() < expiresAt) {
-    await new Promise((r) => setTimeout(r, interval));
-
-    const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        client_id: GITHUB_CLIENT_ID,
-        device_code: codeData.device_code,
-        grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-      }),
-    });
-
-    const tokenData = await tokenRes.json() as {
-      access_token?: string;
-      token_type?: string;
-      scope?: string;
-      error?: string;
-      interval?: number;
-    };
-
-    if (tokenData.access_token) {
+  // Option A: Try gh CLI
+  if (isGhCliInstalled()) {
+    const existingToken = getGhCliToken();
+    if (existingToken) {
+      console.error("  Found existing GitHub CLI authentication.");
+      console.error("  Using token from `gh auth token`.\n");
       const store = readAuthStore();
-      store.github = {
-        access_token: tokenData.access_token,
-        token_type: tokenData.token_type || "bearer",
-        scope: tokenData.scope || "",
-        created_at: Date.now(),
-      };
+      store.github = { token: existingToken, source: "gh-cli" };
       writeAuthStore(store);
-      console.error("  Logged in to GitHub successfully!\n");
+      console.error("  Logged in via GitHub CLI successfully!\n");
       return;
     }
 
-    switch (tokenData.error) {
-      case "authorization_pending":
-        continue;
-      case "slow_down":
-        interval = ((tokenData.interval || codeData.interval + 5) * 1000);
-        continue;
-      case "expired_token":
-        console.error("  Error: Device code expired. Please try again.");
-        process.exit(1);
-        break;
-      case "access_denied":
-        console.error("  Error: Authorization was denied.");
-        process.exit(1);
-        break;
-      default:
-        console.error(`  Error: ${tokenData.error || "Unknown error"}`);
-        process.exit(1);
+    // gh is installed but not authenticated — run gh auth login
+    console.error("  GitHub CLI found but not authenticated.");
+    console.error("  Running `gh auth login`...\n");
+    try {
+      execSync("gh auth login", { stdio: "inherit" });
+      const token = getGhCliToken();
+      if (token) {
+        const store = readAuthStore();
+        store.github = { token, source: "gh-cli" };
+        writeAuthStore(store);
+        console.error("\n  Logged in via GitHub CLI successfully!\n");
+        return;
+      }
+    } catch {
+      console.error("\n  GitHub CLI login failed or was cancelled.\n");
     }
   }
 
-  console.error("  Error: Timed out waiting for authorization.");
-  process.exit(1);
+  // Option C: PAT walkthrough
+  console.error("  GitHub CLI (gh) not found. Falling back to Personal Access Token.\n");
+  console.error("  To create a token:");
+  console.error("    1. Visit: https://github.com/settings/personal-access-tokens/new");
+  console.error("    2. Give it a name (e.g., \"owo-cli\")");
+  console.error("    3. Under \"Permissions\", enable: Models → Read");
+  console.error("    4. Click \"Generate token\" and paste it below\n");
+  openBrowser("https://github.com/settings/personal-access-tokens/new");
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stderr,
+  });
+
+  const token = await new Promise<string>((resolve) => {
+    rl.question("  Paste your token: ", (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+
+  if (!token) {
+    console.error("  No token provided. Aborting.");
+    process.exit(1);
+  }
+
+  const store = readAuthStore();
+  store.github = { token, source: "pat" };
+  writeAuthStore(store);
+  console.error("\n  Token saved successfully!\n");
 }
 
 // --- Token Retrieval ---
 
 export function getOAuthToken(providerType: string): string | undefined {
+  if (providerType !== "GitHub") return undefined;
+
   const store = readAuthStore();
 
-  if (providerType === "GitHub") {
-    return store.github?.access_token;
+  // If stored token exists, use it
+  if (store.github?.token) {
+    // If source is gh-cli, refresh in case user re-authenticated
+    if (store.github.source === "gh-cli") {
+      const fresh = getGhCliToken();
+      if (fresh) return fresh;
+    }
+    return store.github.token;
   }
 
-  return undefined;
+  // No stored token — try gh CLI as a silent fallback
+  return getGhCliToken();
 }

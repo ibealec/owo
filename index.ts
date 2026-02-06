@@ -1,8 +1,6 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import ModelClient, { isUnexpected } from '@azure-rest/ai-inference';
-import { AzureKeyCredential } from '@azure/core-auth';
 import { execSync } from "child_process";
 import readline from "readline";
 import os from "os";
@@ -185,10 +183,23 @@ const CLAUDE_MAX_TOKENS = 1024;
 
 const DEFAULT_CONFIG: Config = {
   type: "GitHub",
-  model: "openai/gpt-4.1-nano",
+  model: "openai/gpt-4o-mini",
   context: DEFAULT_CONTEXT_CONFIG,
   clipboard: false,
 };
+
+// Ordered from highest rate limits (cheapest) to lowest. Each model has
+// independent per-account quotas, so exhausting one doesn't affect the others.
+const GITHUB_MODEL_FALLBACK: string[] = [
+  "openai/gpt-4o-mini",
+  "openai/gpt-4.1-mini",
+  "openai/gpt-4.1-nano",
+  "meta/Llama-4-Scout-17B-16E-Instruct",
+  "deepseek/DeepSeek-V3-0324",
+  "openai/gpt-4o",
+  "openai/gpt-4.1",
+  "openai/gpt-5",
+];
 
 function getEnvApiKey(type: ProviderType): string | undefined {
   switch (type) {
@@ -341,8 +352,8 @@ function printHelp(): void {
 Usage:
   owo <command description>    Generate a shell command from a description
   owo setup                    Interactive first-run configuration wizard
-  owo login github              Authenticate via GitHub OAuth for free-tier models
-  owo logout github             Remove stored GitHub OAuth token
+  owo login github             Authenticate with GitHub for free-tier models
+  owo logout github            Remove stored GitHub authentication
   owo config path              Print config file location
   owo config show              Display current config (API keys masked)
   owo config set <key> <value> Set a config value
@@ -419,12 +430,13 @@ function handleConfigSubcommand(args: string[]): void {
     }
     console.log(JSON.stringify(raw, null, 2));
 
-    // Show OAuth status
+    // Show auth status
     const authStore = readAuthStore();
     if (authStore.github) {
-      console.log("\nOAuth: GitHub (authenticated)");
+      const src = authStore.github.source === "gh-cli" ? "via gh CLI" : "via PAT";
+      console.log(`\nGitHub auth: authenticated (${src})`);
     } else {
-      console.log("\nOAuth: none (run `owo login github` to authenticate)");
+      console.log("\nGitHub auth: none (run `owo login github` to authenticate)");
     }
     process.exit(0);
   }
@@ -477,106 +489,71 @@ const DEFAULT_MODELS: Record<ProviderType, string> = {
   Custom: "llama3",
   Claude: "claude-sonnet-4-20250514",
   Gemini: "gemini-pro",
-  GitHub: "openai/gpt-4.1-nano",
+  GitHub: "openai/gpt-4o-mini",
   ClaudeCode: "sonnet",
 };
 
 async function handleSetupSubcommand(): Promise<void> {
   const rl = createReadlineInterface();
 
-  console.error("\nowo setup - Interactive Configuration Wizard\n");
+  console.error("\nowo setup\n");
 
-  // 1. Pick provider
-  const providers: ProviderType[] = ["OpenAI", "Claude", "Gemini", "GitHub", "ClaudeCode", "Custom"];
+  // 1. Pick provider (GitHub first as default)
+  const providers: ProviderType[] = ["GitHub", "OpenAI", "Claude", "Gemini", "ClaudeCode", "Custom"];
   console.error("Available providers:");
-  providers.forEach((p, i) => console.error(`  ${i + 1}. ${p}`));
+  providers.forEach((p, i) => {
+    const label = i === 0 ? `${p} (free)` : p;
+    console.error(`  ${i + 1}. ${label}`);
+  });
 
   let providerIdx: number;
   while (true) {
-    const answer = await prompt(rl, `\nSelect provider [1-${providers.length}]: `);
+    const answer = await prompt(rl, `\nSelect provider [1-${providers.length}] (default: 1): `);
+    if (answer.trim() === "") { providerIdx = 0; break; }
     providerIdx = parseInt(answer, 10) - 1;
     if (providerIdx >= 0 && providerIdx < providers.length) break;
     console.error("Invalid selection. Please enter a number.");
   }
   const providerType = providers[providerIdx]!;
 
-  // 2. API key (with OAuth alternative for GitHub)
+  // 2. Authentication
   let apiKey = "";
-  if (providerType !== "ClaudeCode") {
-    if (providerType === "GitHub") {
-      const oauthAnswer = await prompt(rl, `\nUse OAuth login (free, no API key needed)? [Y/n]: `);
-      if (oauthAnswer.trim().toLowerCase() !== "n") {
-        rl.close();
-        await loginGitHub();
-        // Reopen rl for remaining prompts
-        const rl2 = createReadlineInterface();
-        const defaultModel2 = DEFAULT_MODELS[providerType];
-        const modelAnswer2 = await prompt(rl2, `\nModel [${defaultModel2}]: `);
-        const model2 = modelAnswer2.trim() || defaultModel2;
-        const clipAnswer2 = await prompt(rl2, "\nAuto-copy commands to clipboard? [y/N]: ");
-        const clipboard2 = clipAnswer2.trim().toLowerCase() === "y";
-        const histAnswer2 = await prompt(rl2, "Include shell history context? [y/N]: ");
-        const historyEnabled2 = histAnswer2.trim().toLowerCase() === "y";
-        rl2.close();
-
-        const newConfig: Record<string, any> = {
-          type: providerType,
-          apiKey: "",
-          model: model2,
-          clipboard: clipboard2,
-          context: { enabled: historyEnabled2, maxHistoryCommands: 10 },
-        };
-        const paths = envPaths("owo", { suffix: "" });
-        const configPath = path.join(paths.config, "config.json");
-        fs.mkdirSync(paths.config, { recursive: true });
-        fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2));
-        console.error(`\nConfiguration saved to: ${configPath}`);
-        console.error("You're all set! Try: owo list all files larger than 100MB\n");
-        process.exit(0);
-      }
-    }
-
+  if (providerType === "GitHub") {
+    rl.close();
+    await loginGitHub();
+  } else if (providerType !== "ClaudeCode") {
     const envVar = {
       OpenAI: "OPENAI_API_KEY", Custom: "OPENAI_API_KEY",
       Claude: "ANTHROPIC_API_KEY", Gemini: "GOOGLE_API_KEY",
-      GitHub: "GITHUB_TOKEN",
     }[providerType] || "OPENAI_API_KEY";
 
     apiKey = await prompt(rl, `\nAPI key (or press Enter to use $${envVar}): `);
   }
 
   // 3. Model
+  if (providerType !== "GitHub") {
+    // GitHub login flow already closed rl, reopen if needed
+  }
+  const rl2 = providerType === "GitHub" ? createReadlineInterface() : rl;
   const defaultModel = DEFAULT_MODELS[providerType];
-  const modelAnswer = await prompt(rl, `\nModel [${defaultModel}]: `);
+  const modelAnswer = await prompt(rl2, `\nModel [${defaultModel}]: `);
   const model = modelAnswer.trim() || defaultModel;
 
   // 4. Base URL for Custom
   let baseURL: string | undefined;
   if (providerType === "Custom") {
-    const urlAnswer = await prompt(rl, "\nBase URL (e.g., http://localhost:11434/v1): ");
+    const urlAnswer = await prompt(rl2, "\nBase URL (e.g., http://localhost:11434/v1): ");
     baseURL = urlAnswer.trim() || undefined;
   }
 
-  // 5. Clipboard
-  const clipAnswer = await prompt(rl, "\nAuto-copy commands to clipboard? [y/N]: ");
-  const clipboard = clipAnswer.trim().toLowerCase() === "y";
-
-  // 6. History
-  const histAnswer = await prompt(rl, "Include shell history context? [y/N]: ");
-  const historyEnabled = histAnswer.trim().toLowerCase() === "y";
-
-  rl.close();
+  rl2.close();
 
   // Build config
   const newConfig: Record<string, any> = {
     type: providerType,
     apiKey: apiKey,
     model: model,
-    clipboard: clipboard,
-    context: {
-      enabled: historyEnabled,
-      maxHistoryCommands: 10,
-    },
+    clipboard: false,
   };
   if (baseURL) newConfig.baseURL = baseURL;
 
@@ -885,28 +862,60 @@ async function generateCommand(
 
     case "GitHub": {
       const endpoint = config.baseURL ? config.baseURL : "https://models.github.ai/inference";
-      const model = config.model ? config.model : "openai/gpt-4.1-nano";
-      const github = ModelClient(
-        endpoint,
-        new AzureKeyCredential(config.apiKey!)
-      );
+      const configuredModel = config.model || "openai/gpt-4o-mini";
 
-      const response = await github.path("/chat/completions").post({
-        body: {
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMessage },
-          ],
-          model: model,
-        },
-      });
-
-      if (isUnexpected(response)) {
-        throw response.body.error;
+      // Build fallback chain: configured model first, then the rest in order
+      const modelsToTry = [configuredModel];
+      for (const m of GITHUB_MODEL_FALLBACK) {
+        if (m !== configuredModel) modelsToTry.push(m);
       }
 
-      const content = response.body.choices?.[0]?.message?.content;
-      return explain ? String(content ?? "") : sanitizeResponse(String(content ?? ""));
+      for (let i = 0; i < modelsToTry.length; i++) {
+        const model = modelsToTry[i]!;
+        const ghRes = await fetch(`${endpoint}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/vnd.github+json",
+            "Authorization": `Bearer ${config.apiKey}`,
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userMessage },
+            ],
+          }),
+        });
+
+        if (ghRes.ok) {
+          const ghData = await ghRes.json() as {
+            choices?: Array<{ message?: { content?: string } }>;
+          };
+          const content = ghData.choices?.[0]?.message?.content ?? "";
+          if (i > 0) {
+            console.error(`  (used ${model})`);
+          }
+          return explain ? String(content) : sanitizeResponse(String(content));
+        }
+
+        // Rate limited or no access — try next model
+        if (ghRes.status === 429 || ghRes.status === 403) {
+          const isLast = i === modelsToTry.length - 1;
+          if (!isLast) {
+            const reason = ghRes.status === 429 ? "rate limited" : "no access";
+            console.error(`  ${model}: ${reason}, trying ${modelsToTry[i + 1]}...`);
+            continue;
+          }
+        }
+
+        // Non-rate-limit error or all models exhausted
+        const errText = await ghRes.text();
+        throw new Error(`GitHub Models API error (HTTP ${ghRes.status}): ${errText}`);
+      }
+
+      throw new Error("All GitHub Models exhausted due to rate limits.");
     }
 
     case "ClaudeCode": {
@@ -1075,7 +1084,7 @@ try {
   }
 } catch (error: any) {
   if (!parsed.raw) {
-    const msg = error?.message || (typeof error === "string" ? error : JSON.stringify(error));
+    const msg = error?.message || (typeof error === "string" ? error : JSON.stringify(error) ?? String(error));
     console.error(`Error generating command (provider: ${config.type}, model: ${config.model}):`, msg);
   }
   process.exit(1);
