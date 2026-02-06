@@ -4,15 +4,15 @@
   "description": "Natural language to shell commands using AI",
   "type": "module",
   "bin": {
-    "owo-cli": "dist/owo-cli.js"
+    "owo": "dist/owo.js"
   },
   "files": [
-    "dist/owo-cli.js"
+    "dist/owo.js"
   ],
   "scripts": {
     "dev": "bun run index.ts",
-    "build": "bun build ./index.ts --compile --outfile dist/owo-cli",
-    "build:npm": "bun build ./index.ts --outfile dist/owo-cli.js --target node && echo '#!/usr/bin/env node' | cat - dist/owo-cli.js > dist/owo-cli.tmp.js && mv dist/owo-cli.tmp.js dist/owo-cli.js",
+    "build": "bun build ./index.ts --compile --outfile dist/owo",
+    "build:npm": "bun build ./index.ts --outfile dist/owo.js --target node && echo '#!/usr/bin/env node' | cat - dist/owo.js > dist/owo.tmp.js && mv dist/owo.tmp.js dist/owo.js",
     "prepublishOnly": "npm run build:npm"
   },
   "keywords": [
