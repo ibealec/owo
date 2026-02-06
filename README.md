@@ -35,10 +35,6 @@
 
 `owo` is not a replacement for comprehensive agentic development tools -- it is simple tool that excels at one thing. Consider it the terminal equivalent of quickly searching "how do I..." and getting an immediately runnable answer.
 
-![owo demo](https://raw.githubusercontent.com/ibealec/owo/main/assets/uwu.gif)
-
-After a response is generated, you can edit it before pressing enter to execute the command. This is useful if you want to add flags, or other modifications to the command.
-
 ## Quick Examples
 
 ```bash
