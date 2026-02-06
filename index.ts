@@ -184,8 +184,8 @@ function parseArgs(argv: string[]): ParsedArgs {
 const CLAUDE_MAX_TOKENS = 1024;
 
 const DEFAULT_CONFIG: Config = {
-  type: "OpenAI",
-  model: "gpt-4.1",
+  type: "GitHub",
+  model: "openai/gpt-4.1-nano",
   context: DEFAULT_CONTEXT_CONFIG,
   clipboard: false,
 };
@@ -1075,7 +1075,8 @@ try {
   }
 } catch (error: any) {
   if (!parsed.raw) {
-    console.error(`Error generating command (provider: ${config.type}, model: ${config.model}):`, error.message);
+    const msg = error?.message || (typeof error === "string" ? error : JSON.stringify(error));
+    console.error(`Error generating command (provider: ${config.type}, model: ${config.model}):`, msg);
   }
   process.exit(1);
 }
