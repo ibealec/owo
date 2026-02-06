@@ -175,7 +175,7 @@ async function copyToClipboard(text: string): Promise<void> {
   }
 }
 
-const VERSION = "1.1.1";
+const VERSION = "1.1.2";
 
 function printHelp(): void {
   console.log(`owo v${VERSION} - Natural language to shell commands using AI
