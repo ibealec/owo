@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>owo — Natural Language Shell Commands</title>
+<meta name="description" content="A lightweight CLI that converts natural language to shell commands using AI. Powered by 6 AI providers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Fira+Code:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-deep:#06060c;
+  --bg:#0a0a12;
+  --bg-card:#0e0e1a;
+  --bg-card-hover:#12122a;
+  --cyan:#00ffe5;
+  --magenta:#ff2dff;
+  --green:#39ff14;
+  --yellow:#ffe600;
+  --text:#c8ccd4;
+  --text-dim:#5a5e6b;
+  --text-bright:#eef0f6;
+  --pixel:'Press Start 2P', monospace;
+  --mono:'Fira Code', 'JetBrains Mono', monospace;
+  --glow-cyan:0 0 8px #00ffe580, 0 0 24px #00ffe530;
+  --glow-magenta:0 0 8px #ff2dff80, 0 0 24px #ff2dff30;
+  --glow-green:0 0 8px #39ff1480, 0 0 24px #39ff1430;
+}
+html{scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:#1a1a2e #06060c}
+body{
+  font-family:var(--mono);
+  background:var(--bg-deep);
+  color:var(--text);
+  overflow-x:hidden;
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* === SCANLINE OVERLAY === */
+body::after{
+  content:'';
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:9999;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+}
+
+/* === STARFIELD BACKGROUND === */
+.starfield{
+  position:fixed;
+  inset:0;
+  z-index:0;
+  overflow:hidden;
+  pointer-events:none;
+}
+.star{
+  position:absolute;
+  width:2px;height:2px;
+  background:#fff;
+  border-radius:50%;
+  animation:twinkle var(--dur) ease-in-out infinite alternate;
+  opacity:0;
+}
+@keyframes twinkle{0%{opacity:0.05}100%{opacity:var(--peak,0.6)}}
+
+/* === GRID PATTERN === */
+.grid-bg{
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background-image:
+    linear-gradient(rgba(0,255,229,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,229,0.02) 1px, transparent 1px);
+  background-size:60px 60px;
+}
+
+/* === LAYOUT === */
+.wrapper{position:relative;z-index:1}
+section{padding:100px 24px}
+.container{max-width:1100px;margin:0 auto;width:100%}
+.section-label{
+  font-family:var(--pixel);
+  font-size:10px;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  color:var(--magenta);
+  margin-bottom:16px;
+  text-shadow:var(--glow-magenta);
+}
+.section-title{
+  font-family:var(--pixel);
+  font-size:clamp(16px,3vw,24px);
+  color:var(--text-bright);
+  line-height:1.8;
+  margin-bottom:48px;
+}
+
+/* === REVEAL ANIMATIONS === */
+.reveal{
+  opacity:0;
+  transform:translateY(30px);
+  transition:opacity 0.7s cubic-bezier(.16,1,.3,1), transform 0.7s cubic-bezier(.16,1,.3,1);
+}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:.1s}
+.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}
+.reveal-delay-4{transition-delay:.4s}
+.reveal-delay-5{transition-delay:.5s}
+
+/* ==================== NAV ==================== */
+nav{
+  position:fixed;
+  top:0;left:0;right:0;
+  z-index:100;
+  padding:16px 24px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:rgba(6,6,12,0.85);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(0,255,229,0.08);
+  transition:all .3s;
+}
+nav.scrolled{
+  padding:10px 24px;
+  background:rgba(6,6,12,0.95);
+  border-bottom-color:rgba(0,255,229,0.15);
+}
+.nav-logo{
+  font-family:var(--pixel);
+  font-size:16px;
+  color:var(--cyan);
+  text-decoration:none;
+  text-shadow:var(--glow-cyan);
+}
+.nav-links{display:flex;gap:24px;align-items:center}
+.nav-links a{
+  font-family:var(--mono);
+  font-size:13px;
+  color:var(--text-dim);
+  text-decoration:none;
+  transition:color .2s;
+}
+.nav-links a:hover{color:var(--cyan)}
+.nav-cta{
+  font-family:var(--pixel)!important;
+  font-size:9px!important;
+  color:var(--bg-deep)!important;
+  background:var(--cyan);
+  padding:8px 16px;
+  border-radius:2px;
+  text-shadow:none!important;
+  transition:all .2s;
+}
+.nav-cta:hover{box-shadow:var(--glow-cyan);transform:translateY(-1px)}
+.nav-toggle{display:none;background:none;border:none;color:var(--cyan);font-size:24px;cursor:pointer}
+
+/* ==================== HERO ==================== */
+.hero{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  padding-top:100px;
+  position:relative;
+}
+.hero-inner{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:60px;
+  align-items:center;
+}
+.hero-badge{
+  display:inline-block;
+  font-family:var(--pixel);
+  font-size:8px;
+  color:var(--green);
+  border:1px solid rgba(57,255,20,0.3);
+  padding:6px 14px;
+  margin-bottom:24px;
+  letter-spacing:2px;
+  text-shadow:var(--glow-green);
+  animation:pulse-border 3s ease-in-out infinite;
+}
+@keyframes pulse-border{
+  0%,100%{border-color:rgba(57,255,20,0.3)}
+  50%{border-color:rgba(57,255,20,0.7)}
+}
+.hero-title{
+  font-family:var(--pixel);
+  font-size:clamp(48px,8vw,80px);
+  color:var(--cyan);
+  line-height:1.2;
+  margin-bottom:24px;
+  text-shadow:
+    0 0 10px #00ffe580,
+    0 0 40px #00ffe540,
+    0 0 80px #00ffe520;
+  animation:flicker 4s ease-in-out infinite;
+}
+@keyframes flicker{
+  0%,93%,95%,97%,100%{opacity:1}
+  94%{opacity:0.92}
+  96%{opacity:0.95}
+}
+.hero-tagline{
+  font-family:var(--pixel);
+  font-size:clamp(11px,1.5vw,14px);
+  color:var(--text-bright);
+  line-height:2.2;
+  margin-bottom:16px;
+}
+.hero-tagline .arrow{color:var(--magenta);text-shadow:var(--glow-magenta)}
+.hero-sub{
+  font-size:15px;
+  color:var(--text-dim);
+  margin-bottom:36px;
+  max-width:480px;
+  line-height:1.8;
+}
+.hero-buttons{display:flex;gap:16px;flex-wrap:wrap}
+.btn{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-family:var(--pixel);
+  font-size:10px;
+  padding:14px 28px;
+  border:2px solid transparent;
+  cursor:pointer;
+  text-decoration:none;
+  transition:all .25s;
+  position:relative;
+  letter-spacing:1px;
+}
+.btn-primary{
+  background:var(--cyan);
+  color:var(--bg-deep);
+  border-color:var(--cyan);
+}
+.btn-primary:hover{
+  box-shadow:var(--glow-cyan),inset 0 0 20px rgba(0,255,229,0.15);
+  transform:translateY(-2px);
+}
+.btn-outline{
+  background:transparent;
+  color:var(--cyan);
+  border-color:rgba(0,255,229,0.4);
+}
+.btn-outline:hover{
+  border-color:var(--cyan);
+  box-shadow:var(--glow-cyan);
+  transform:translateY(-2px);
+}
+
+/* === HERO TERMINAL === */
+.hero-terminal{
+  background:#080810;
+  border:1px solid rgba(0,255,229,0.15);
+  border-radius:4px;
+  overflow:hidden;
+  box-shadow:
+    0 0 30px rgba(0,255,229,0.08),
+    0 20px 60px rgba(0,0,0,0.5);
+  position:relative;
+}
+.term-bar{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:12px 16px;
+  background:#0c0c18;
+  border-bottom:1px solid rgba(0,255,229,0.08);
+}
+.term-dot{
+  width:10px;height:10px;border-radius:50%;
+}
+.term-dot.r{background:#ff5f57}
+.term-dot.y{background:#febc2e}
+.term-dot.g{background:#28c840}
+.term-title{
+  flex:1;
+  text-align:center;
+  font-size:11px;
+  color:var(--text-dim);
+}
+.term-body{
+  padding:24px;
+  font-size:14px;
+  line-height:2;
+  min-height:180px;
+}
+.term-line{
+  display:block;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.term-prompt{color:var(--green);text-shadow:var(--glow-green)}
+.term-cmd{color:var(--text-bright)}
+.term-arrow{color:var(--magenta);text-shadow:var(--glow-magenta)}
+.term-output{color:var(--cyan);text-shadow:0 0 6px #00ffe540}
+.cursor{
+  display:inline-block;
+  width:8px;
+  height:16px;
+  background:var(--cyan);
+  vertical-align:middle;
+  margin-left:2px;
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* typing animation */
+.type-animate{
+  display:inline-block;
+  overflow:hidden;
+  white-space:nowrap;
+  border-right:none;
+  width:0;
+  animation:typing var(--type-dur,2s) steps(var(--type-steps,30)) var(--type-delay,0s) forwards;
+}
+@keyframes typing{from{width:0}to{width:100%}}
+
+/* ==================== HOW IT WORKS ==================== */
+.how-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:24px;
+}
+.step-card{
+  background:var(--bg-card);
+  border:1px solid rgba(0,255,229,0.08);
+  padding:36px 28px;
+  position:relative;
+  transition:all .3s;
+  overflow:hidden;
+}
+.step-card::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  border:1px solid transparent;
+  transition:border-color .3s;
+}
+.step-card:hover{
+  border-color:rgba(0,255,229,0.2);
+  transform:translateY(-4px);
+  box-shadow:0 0 20px rgba(0,255,229,0.06);
+}
+.step-card:hover::before{border-color:rgba(0,255,229,0.06)}
+.step-num{
+  font-family:var(--pixel);
+  font-size:28px;
+  color:var(--cyan);
+  text-shadow:var(--glow-cyan);
+  margin-bottom:20px;
+  display:block;
+}
+.step-icon{
+  font-size:32px;
+  margin-bottom:16px;
+  display:block;
+  filter:saturate(1.4);
+}
+.step-name{
+  font-family:var(--pixel);
+  font-size:12px;
+  color:var(--text-bright);
+  margin-bottom:12px;
+}
+.step-desc{
+  font-size:13px;
+  color:var(--text-dim);
+  line-height:1.8;
+}
+
+/* ==================== FEATURES ==================== */
+.features-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:20px;
+}
+.feature-card{
+  background:var(--bg-card);
+  border:1px solid rgba(255,45,255,0.06);
+  padding:32px 24px;
+  transition:all .3s;
+  position:relative;
+}
+.feature-card::after{
+  content:'';
+  position:absolute;
+  bottom:0;left:0;right:0;
+  height:2px;
+  background:linear-gradient(90deg,var(--cyan),var(--magenta));
+  opacity:0;
+  transition:opacity .3s;
+}
+.feature-card:hover{
+  border-color:rgba(255,45,255,0.15);
+  transform:translateY(-3px);
+  box-shadow:0 0 20px rgba(255,45,255,0.05);
+}
+.feature-card:hover::after{opacity:1}
+.feature-icon{
+  font-size:28px;
+  margin-bottom:16px;
+  display:block;
+}
+.feature-name{
+  font-family:var(--pixel);
+  font-size:10px;
+  color:var(--text-bright);
+  margin-bottom:10px;
+  line-height:1.8;
+}
+.feature-desc{
+  font-size:13px;
+  color:var(--text-dim);
+  line-height:1.7;
+}
+
+/* ==================== EXAMPLES ==================== */
+.examples-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:20px;
+}
+.example-term{
+  background:#080810;
+  border:1px solid rgba(0,255,229,0.1);
+  border-radius:4px;
+  overflow:hidden;
+  transition:all .3s;
+}
+.example-term:hover{
+  border-color:rgba(0,255,229,0.25);
+  box-shadow:0 0 24px rgba(0,255,229,0.06);
+}
+.example-bar{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:10px 14px;
+  background:#0c0c18;
+  border-bottom:1px solid rgba(0,255,229,0.06);
+}
+.example-bar .term-dot{width:8px;height:8px}
+.example-body{
+  padding:20px;
+  font-size:13px;
+  line-height:2;
+}
+.example-desc{
+  color:var(--text-dim);
+  font-size:11px;
+  font-style:italic;
+  display:block;
+  margin-bottom:8px;
+}
+
+/* ==================== INSTALL ==================== */
+.install-section{
+  background:linear-gradient(180deg,var(--bg-deep),#080814,var(--bg-deep));
+}
+.install-tabs{
+  display:flex;
+  gap:0;
+  margin-bottom:0;
+}
+.install-tab{
+  font-family:var(--pixel);
+  font-size:9px;
+  padding:14px 24px;
+  background:#0c0c18;
+  color:var(--text-dim);
+  border:1px solid rgba(0,255,229,0.08);
+  border-bottom:none;
+  cursor:pointer;
+  transition:all .2s;
+  letter-spacing:1px;
+}
+.install-tab:first-child{border-radius:4px 0 0 0}
+.install-tab:last-child{border-radius:0 4px 0 0}
+.install-tab.active{
+  background:var(--bg-card);
+  color:var(--cyan);
+  border-color:rgba(0,255,229,0.2);
+  text-shadow:var(--glow-cyan);
+}
+.install-tab .rec-badge{
+  font-size:7px;
+  color:var(--green);
+  margin-left:8px;
+  vertical-align:super;
+}
+.install-panels{
+  background:var(--bg-card);
+  border:1px solid rgba(0,255,229,0.1);
+  border-radius:0 4px 4px 4px;
+  overflow:hidden;
+}
+.install-panel{
+  display:none;
+  padding:32px;
+}
+.install-panel.active{display:block}
+.install-cmd-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  background:#080810;
+  border:1px solid rgba(0,255,229,0.08);
+  padding:16px 20px;
+  border-radius:4px;
+  margin-bottom:16px;
+}
+.install-cmd{
+  flex:1;
+  font-family:var(--mono);
+  font-size:14px;
+  color:var(--cyan);
+  text-shadow:0 0 6px #00ffe530;
+}
+.copy-btn{
+  font-family:var(--pixel);
+  font-size:8px;
+  color:var(--text-dim);
+  background:rgba(0,255,229,0.06);
+  border:1px solid rgba(0,255,229,0.15);
+  padding:8px 14px;
+  cursor:pointer;
+  transition:all .2s;
+  white-space:nowrap;
+}
+.copy-btn:hover{
+  color:var(--cyan);
+  border-color:var(--cyan);
+}
+.copy-btn.copied{
+  color:var(--green)!important;
+  border-color:var(--green)!important;
+}
+.install-note{
+  font-size:13px;
+  color:var(--text-dim);
+  line-height:1.7;
+}
+.install-note code{
+  color:var(--green);
+  background:rgba(57,255,20,0.06);
+  padding:2px 8px;
+  border-radius:2px;
+  font-size:12px;
+}
+.source-steps{
+  font-size:13px;
+  color:var(--text);
+  line-height:2.2;
+}
+.source-steps code{
+  display:block;
+  color:var(--cyan);
+  background:#080810;
+  padding:8px 16px;
+  margin:6px 0;
+  border-left:2px solid rgba(0,255,229,0.2);
+  font-size:13px;
+}
+
+/* ==================== PROVIDERS ==================== */
+.providers-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:16px;
+}
+.provider-card{
+  background:var(--bg-card);
+  border:1px solid rgba(255,45,255,0.06);
+  padding:28px 24px;
+  text-align:center;
+  transition:all .3s;
+  position:relative;
+}
+.provider-card:hover{
+  border-color:rgba(0,255,229,0.2);
+  transform:translateY(-3px);
+  box-shadow:0 0 16px rgba(0,255,229,0.05);
+}
+.provider-card.local-highlight{
+  border-color:rgba(57,255,20,0.15);
+}
+.provider-card.local-highlight:hover{
+  border-color:rgba(57,255,20,0.3);
+  box-shadow:0 0 16px rgba(57,255,20,0.05);
+}
+.provider-icon{font-size:32px;margin-bottom:12px;display:block}
+.provider-name{
+  font-family:var(--pixel);
+  font-size:9px;
+  color:var(--text-bright);
+  margin-bottom:8px;
+}
+.provider-note{
+  font-size:12px;
+  color:var(--text-dim);
+  line-height:1.6;
+}
+.provider-badge{
+  display:inline-block;
+  font-family:var(--pixel);
+  font-size:7px;
+  color:var(--green);
+  border:1px solid rgba(57,255,20,0.3);
+  padding:3px 8px;
+  margin-top:10px;
+  letter-spacing:1px;
+}
+
+/* ==================== QUICKSTART ==================== */
+.quickstart{
+  background:linear-gradient(180deg,transparent,rgba(0,255,229,0.02),transparent);
+}
+.qs-steps{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:24px;
+  margin-bottom:40px;
+}
+.qs-step{
+  text-align:center;
+  padding:32px 20px;
+}
+.qs-num{
+  font-family:var(--pixel);
+  font-size:24px;
+  color:var(--magenta);
+  text-shadow:var(--glow-magenta);
+  margin-bottom:16px;
+}
+.qs-cmd{
+  display:inline-block;
+  font-family:var(--mono);
+  font-size:14px;
+  color:var(--cyan);
+  background:#080810;
+  padding:10px 20px;
+  border:1px solid rgba(0,255,229,0.1);
+  border-radius:4px;
+  margin-bottom:12px;
+  text-shadow:0 0 6px #00ffe530;
+}
+.qs-text{
+  font-size:13px;
+  color:var(--text-dim);
+  line-height:1.6;
+}
+.qs-connector{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:40px;
+  margin-bottom:40px;
+}
+.qs-ready{
+  text-align:center;
+  font-family:var(--pixel);
+  font-size:12px;
+  color:var(--green);
+  text-shadow:var(--glow-green);
+}
+
+/* ==================== FOOTER ==================== */
+footer{
+  padding:60px 24px 40px;
+  border-top:1px solid rgba(0,255,229,0.06);
+  text-align:center;
+}
+.footer-logo{
+  font-family:var(--pixel);
+  font-size:20px;
+  color:var(--cyan);
+  text-shadow:var(--glow-cyan);
+  margin-bottom:20px;
+  display:block;
+}
+.footer-links{
+  display:flex;
+  justify-content:center;
+  gap:32px;
+  margin-bottom:24px;
+}
+.footer-links a{
+  font-size:13px;
+  color:var(--text-dim);
+  text-decoration:none;
+  transition:color .2s;
+}
+.footer-links a:hover{color:var(--cyan)}
+.footer-copy{
+  font-size:11px;
+  color:var(--text-dim);
+  opacity:0.6;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media(max-width:900px){
+  .hero-inner{grid-template-columns:1fr;gap:40px}
+  .hero-terminal{order:-1}
+  .how-grid,.features-grid,.providers-grid,.qs-steps{grid-template-columns:1fr 1fr}
+  .examples-grid{grid-template-columns:1fr}
+  .nav-links{
+    display:none;
+    position:absolute;
+    top:100%;left:0;right:0;
+    background:rgba(6,6,12,0.97);
+    flex-direction:column;
+    padding:20px;
+    gap:16px;
+    border-bottom:1px solid rgba(0,255,229,0.1);
+  }
+  .nav-links.open{display:flex}
+  .nav-toggle{display:block}
+}
+@media(max-width:600px){
+  section{padding:60px 16px}
+  .how-grid,.features-grid,.providers-grid,.qs-steps{grid-template-columns:1fr}
+  .hero-title{font-size:42px}
+  .install-tabs{flex-wrap:wrap}
+  .install-tab{flex:1;text-align:center;font-size:8px;padding:10px 12px}
+  .hero-buttons{flex-direction:column}
+  .btn{justify-content:center;width:100%}
+}
+
+/* ==================== SPECIAL EFFECTS ==================== */
+.vignette{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:9998;
+  background:radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.4) 100%);
+}
+
+/* Glow line decorations */
+.glow-line{
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  opacity:0.15;
+  margin:60px 0;
+}
+
+/* Selection styling */
+::selection{
+  background:rgba(0,255,229,0.25);
+  color:var(--text-bright);
+}
+</style>
+</head>
+<body>
+
+<div class="starfield" id="starfield"></div>
+<div class="grid-bg"></div>
+<div class="vignette"></div>
+
+<div class="wrapper">
+
+<!-- NAV -->
+<nav id="nav">
+  <a href="#" class="nav-logo">owo</a>
+  <button class="nav-toggle" id="navToggle" aria-label="Menu">&#9776;</button>
+  <div class="nav-links" id="navLinks">
+    <a href="#how">How it works</a>
+    <a href="#features">Features</a>
+    <a href="#examples">Examples</a>
+    <a href="#install">Install</a>
+    <a href="#providers">Providers</a>
+    <a href="https://github.com/ibealec/owo" target="_blank" rel="noopener" class="nav-cta">GitHub</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-inner">
+      <div class="hero-content">
+        <span class="hero-badge reveal">v1.3.1 &mdash; READY TO PLAY</span>
+        <h1 class="hero-title reveal reveal-delay-1">owo</h1>
+        <p class="hero-tagline reveal reveal-delay-2">Natural language <span class="arrow">&rarr;</span> shell commands. Instantly.</p>
+        <p class="hero-sub reveal reveal-delay-3">A lightweight CLI that turns what you mean into what you type. Powered by AI, designed for developers who move fast.</p>
+        <div class="hero-buttons reveal reveal-delay-4">
+          <a href="#install" class="btn btn-primary">INSTALL NOW</a>
+          <a href="https://github.com/ibealec/owo" target="_blank" rel="noopener" class="btn btn-outline">VIEW ON GITHUB</a>
+        </div>
+      </div>
+      <div class="hero-terminal reveal reveal-delay-2">
+        <div class="term-bar">
+          <span class="term-dot r"></span>
+          <span class="term-dot y"></span>
+          <span class="term-dot g"></span>
+          <span class="term-title">terminal</span>
+        </div>
+        <div class="term-body" id="heroTerm">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <div class="section-label reveal">// HOW IT WORKS</div>
+    <h2 class="section-title reveal reveal-delay-1">Three steps. Zero friction.</h2>
+    <div class="how-grid">
+      <div class="step-card reveal reveal-delay-1">
+        <span class="step-num">01</span>
+        <span class="step-icon">&#9997;&#65039;</span>
+        <div class="step-name">DESCRIBE</div>
+        <p class="step-desc">Tell owo what you need in plain English. No syntax to remember, no man pages to read.</p>
+      </div>
+      <div class="step-card reveal reveal-delay-2">
+        <span class="step-num">02</span>
+        <span class="step-icon">&#9889;</span>
+        <div class="step-name">GENERATE</div>
+        <p class="step-desc">AI converts your words into the perfect shell command, with full context of your environment.</p>
+      </div>
+      <div class="step-card reveal reveal-delay-3">
+        <span class="step-num">03</span>
+        <span class="step-icon">&#9654;&#65039;</span>
+        <div class="step-name">EXECUTE</div>
+        <p class="step-desc">Review, edit if needed, and run &mdash; right in your terminal. Commands auto-add to shell history.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container"><div class="glow-line"></div></div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="section-label reveal">// FEATURES</div>
+    <h2 class="section-title reveal reveal-delay-1">Small tool. Big power.</h2>
+    <div class="features-grid">
+      <div class="feature-card reveal reveal-delay-1">
+        <span class="feature-icon">&#127918;</span>
+        <div class="feature-name">6 AI PROVIDERS</div>
+        <p class="feature-desc">OpenAI, Claude, Gemini, GitHub Models, Ollama/LM Studio, and Claude Code. Your choice.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <span class="feature-icon">&#128065;&#65039;</span>
+        <div class="feature-name">CONTEXT-AWARE</div>
+        <p class="feature-desc">Understands your OS, shell, directory structure, and recent commands for precise results.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-3">
+        <span class="feature-icon">&#128218;</span>
+        <div class="feature-name">SHELL HISTORY</div>
+        <p class="feature-desc">Commands auto-added to history. Optionally include recent history for better context.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-1">
+        <span class="feature-icon">&#9998;&#65039;</span>
+        <div class="feature-name">EDIT BEFORE RUN</div>
+        <p class="feature-desc">Modify any generated command in-shell before executing. Full control, always.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <span class="feature-icon">&#128203;</span>
+        <div class="feature-name">CLIPBOARD READY</div>
+        <p class="feature-desc">Auto-copy to system clipboard. Cross-platform support for macOS, Linux, and Windows.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-3">
+        <span class="feature-icon">&#128161;</span>
+        <div class="feature-name">EXPLAIN MODE</div>
+        <p class="feature-desc">Use the -e flag to get plain-English explanations of what commands actually do.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container"><div class="glow-line"></div></div>
+
+<!-- EXAMPLES -->
+<section id="examples">
+  <div class="container">
+    <div class="section-label reveal">// SEE IT IN ACTION</div>
+    <h2 class="section-title reveal reveal-delay-1">Real commands. Real results.</h2>
+    <div class="examples-grid">
+      <div class="example-term reveal reveal-delay-1">
+        <div class="example-bar">
+          <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
+        </div>
+        <div class="example-body">
+          <span class="example-desc">Find large files eating your disk</span>
+          <span class="term-line"><span class="term-prompt">$ </span><span class="term-cmd">owo find all files larger than 100MB</span></span>
+          <span class="term-line"><span class="term-arrow">&rarr; </span><span class="term-output">find / -type f -size +100M 2>/dev/null</span></span>
+        </div>
+      </div>
+      <div class="example-term reveal reveal-delay-2">
+        <div class="example-bar">
+          <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
+        </div>
+        <div class="example-body">
+          <span class="example-desc">Quick archive of the current directory</span>
+          <span class="term-line"><span class="term-prompt">$ </span><span class="term-cmd">owo compress this directory into a tar.gz</span></span>
+          <span class="term-line"><span class="term-arrow">&rarr; </span><span class="term-output">tar -czf archive.tar.gz .</span></span>
+        </div>
+      </div>
+      <div class="example-term reveal reveal-delay-3">
+        <div class="example-bar">
+          <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
+        </div>
+        <div class="example-body">
+          <span class="example-desc">See what's hogging space</span>
+          <span class="term-line"><span class="term-prompt">$ </span><span class="term-cmd">owo show disk usage sorted by size</span></span>
+          <span class="term-line"><span class="term-arrow">&rarr; </span><span class="term-output">du -sh * | sort -rh</span></span>
+        </div>
+      </div>
+      <div class="example-term reveal reveal-delay-4">
+        <div class="example-bar">
+          <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
+        </div>
+        <div class="example-body">
+          <span class="example-desc">Hunt down zombie processes</span>
+          <span class="term-line"><span class="term-prompt">$ </span><span class="term-cmd">owo find all zombie processes</span></span>
+          <span class="term-line"><span class="term-arrow">&rarr; </span><span class="term-output">ps aux | awk '$8=="Z" {print}'</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container"><div class="glow-line"></div></div>
+
+<!-- INSTALL -->
+<section id="install" class="install-section">
+  <div class="container">
+    <div class="section-label reveal">// INSTALL</div>
+    <h2 class="section-title reveal reveal-delay-1">Get started in one command.</h2>
+    <div class="reveal reveal-delay-2">
+      <div class="install-tabs">
+        <button class="install-tab active" data-tab="npm">NPM<span class="rec-badge">REC</span></button>
+        <button class="install-tab" data-tab="brew">HOMEBREW</button>
+        <button class="install-tab" data-tab="source">SOURCE</button>
+      </div>
+      <div class="install-panels">
+        <div class="install-panel active" id="panel-npm">
+          <div class="install-cmd-row">
+            <span class="install-cmd">npm install -g owo-cli</span>
+            <button class="copy-btn" data-copy="npm install -g owo-cli">COPY</button>
+          </div>
+          <p class="install-note">Requires <code>Node.js 18+</code>. Then run <code>owo setup</code> to configure your AI provider.</p>
+        </div>
+        <div class="install-panel" id="panel-brew">
+          <div class="install-cmd-row">
+            <span class="install-cmd">brew install ibealec/owo/owo-cli</span>
+            <button class="copy-btn" data-copy="brew install ibealec/owo/owo-cli">COPY</button>
+          </div>
+          <p class="install-note">Available on macOS and Linux via Homebrew. Then run <code>owo setup</code> to get started.</p>
+        </div>
+        <div class="install-panel" id="panel-source">
+          <div class="source-steps">
+            <code>git clone https://github.com/ibealec/owo.git && cd owo</code>
+            <code>bun install && bun run build</code>
+            <code>chmod +x dist/owo-cli && mv dist/owo-cli /usr/local/bin/owo-cli</code>
+          </div>
+          <p class="install-note" style="margin-top:16px">Requires <code>Bun</code> runtime. Then run <code>owo setup</code> to configure.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container"><div class="glow-line"></div></div>
+
+<!-- PROVIDERS -->
+<section id="providers">
+  <div class="container">
+    <div class="section-label reveal">// PROVIDERS</div>
+    <h2 class="section-title reveal reveal-delay-1">Your AI. Your rules.</h2>
+    <div class="providers-grid">
+      <div class="provider-card reveal reveal-delay-1">
+        <span class="provider-icon">&#129302;</span>
+        <div class="provider-name">OPENAI</div>
+        <p class="provider-note">GPT-4o, GPT-4.1, and more. The classic choice.</p>
+      </div>
+      <div class="provider-card reveal reveal-delay-2">
+        <span class="provider-icon">&#128172;</span>
+        <div class="provider-name">CLAUDE</div>
+        <p class="provider-note">Anthropic's Claude models. Precise and thoughtful.</p>
+      </div>
+      <div class="provider-card reveal reveal-delay-3">
+        <span class="provider-icon">&#10024;</span>
+        <div class="provider-name">GEMINI</div>
+        <p class="provider-note">Google's Gemini family. Fast and capable.</p>
+      </div>
+      <div class="provider-card reveal reveal-delay-1">
+        <span class="provider-icon">&#128025;</span>
+        <div class="provider-name">GITHUB MODELS</div>
+        <p class="provider-note">Use your GitHub token. Multiple models available.</p>
+      </div>
+      <div class="provider-card local-highlight reveal reveal-delay-2">
+        <span class="provider-icon">&#127968;</span>
+        <div class="provider-name">CUSTOM / LOCAL</div>
+        <p class="provider-note">Ollama, LM Studio, or any OpenAI-compatible endpoint.</p>
+        <span class="provider-badge">PRIVATE</span>
+      </div>
+      <div class="provider-card reveal reveal-delay-3">
+        <span class="provider-icon">&#9000;&#65039;</span>
+        <div class="provider-name">CLAUDE CODE</div>
+        <p class="provider-note">Direct integration with Claude Code's context.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container"><div class="glow-line"></div></div>
+
+<!-- QUICKSTART -->
+<section class="quickstart">
+  <div class="container">
+    <div class="section-label reveal" style="text-align:center">// QUICK START</div>
+    <h2 class="section-title reveal reveal-delay-1" style="text-align:center">Ready in seconds.</h2>
+    <div class="qs-steps">
+      <div class="qs-step reveal reveal-delay-1">
+        <div class="qs-num">01</div>
+        <code class="qs-cmd">npm i -g owo-cli</code>
+        <p class="qs-text">Install globally</p>
+      </div>
+      <div class="qs-step reveal reveal-delay-2">
+        <div class="qs-num">02</div>
+        <code class="qs-cmd">owo setup</code>
+        <p class="qs-text">Pick your AI provider</p>
+      </div>
+      <div class="qs-step reveal reveal-delay-3">
+        <div class="qs-num">03</div>
+        <code class="qs-cmd">owo &lt;anything&gt;</code>
+        <p class="qs-text">Start commanding</p>
+      </div>
+    </div>
+    <div class="reveal reveal-delay-4" style="text-align:center">
+      <p class="qs-ready">&#9654; GAME ON &#9664;</p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <span class="footer-logo">owo</span>
+    <div class="footer-links">
+      <a href="https://github.com/ibealec/owo" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/ibealec/owo" target="_blank" rel="noopener">Star on GitHub &#11088;</a>
+      <a href="https://www.npmjs.com/package/owo-cli" target="_blank" rel="noopener">npm</a>
+    </div>
+    <p class="footer-copy">Built by ibealec &middot; MIT License &middot; &copy; Use Context, Inc.</p>
+  </div>
+</footer>
+
+</div><!-- wrapper -->
+
+<script>
+// === STARFIELD ===
+(function(){
+  const sf = document.getElementById('starfield');
+  const count = 80;
+  for(let i=0;i<count;i++){
+    const s = document.createElement('div');
+    s.className='star';
+    s.style.left=Math.random()*100+'%';
+    s.style.top=Math.random()*100+'%';
+    s.style.setProperty('--dur',(2+Math.random()*4)+'s');
+    s.style.setProperty('--peak',(0.3+Math.random()*0.5).toFixed(2));
+    s.style.animationDelay=(-Math.random()*5)+'s';
+    sf.appendChild(s);
+  }
+})();
+
+// === NAV SCROLL ===
+const nav = document.getElementById('nav');
+window.addEventListener('scroll',()=>{
+  nav.classList.toggle('scrolled', window.scrollY > 40);
+},{passive:true});
+
+// === MOBILE NAV ===
+document.getElementById('navToggle').addEventListener('click',()=>{
+  document.getElementById('navLinks').classList.toggle('open');
+});
+document.querySelectorAll('.nav-links a').forEach(a=>{
+  a.addEventListener('click',()=>{
+    document.getElementById('navLinks').classList.remove('open');
+  });
+});
+
+// === REVEAL ON SCROLL ===
+const reveals = document.querySelectorAll('.reveal');
+const io = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('visible');
+      io.unobserve(e.target);
+    }
+  });
+},{threshold:0.1,rootMargin:'0px 0px -40px 0px'});
+reveals.forEach(r=>io.observe(r));
+
+// === HERO TERMINAL TYPING ===
+(function(){
+  const term = document.getElementById('heroTerm');
+  const demos = [
+    {cmd:'owo find all files larger than 100MB', out:'find / -type f -size +100M 2>/dev/null'},
+    {cmd:'owo compress this directory into a tar.gz', out:'tar -czf archive.tar.gz .'},
+    {cmd:'owo show disk usage sorted by size', out:'du -sh * | sort -rh'},
+    {cmd:'owo kill the process on port 3000', out:'lsof -ti:3000 | xargs kill -9'},
+  ];
+  let idx=0;
+  function typeText(el,text,speed,cb){
+    let i=0;
+    el.textContent='';
+    function tick(){
+      if(i<text.length){
+        el.textContent+=text[i];i++;
+        setTimeout(tick,speed+Math.random()*30);
+      } else if(cb) cb();
+    }
+    tick();
+  }
+  function showDemo(){
+    const d=demos[idx%demos.length]; idx++;
+    term.innerHTML='';
+
+    const line1=document.createElement('span');
+    line1.className='term-line';
+    const prompt=document.createElement('span');
+    prompt.className='term-prompt';prompt.textContent='$ ';
+    const cmd=document.createElement('span');
+    cmd.className='term-cmd';
+    const cur=document.createElement('span');
+    cur.className='cursor';
+    line1.append(prompt,cmd,cur);
+    term.append(line1);
+
+    typeText(cmd,d.cmd,40,()=>{
+      cur.remove();
+      setTimeout(()=>{
+        const line2=document.createElement('span');
+        line2.className='term-line';
+        const arrow=document.createElement('span');
+        arrow.className='term-arrow';arrow.textContent='\u2192 ';
+        const out=document.createElement('span');
+        out.className='term-output';out.textContent=d.out;
+        line2.style.opacity='0';
+        line2.append(arrow,out);
+        term.append(line2);
+        requestAnimationFrame(()=>{
+          line2.style.transition='opacity .4s';
+          line2.style.opacity='1';
+        });
+        setTimeout(showDemo,3500);
+      },600);
+    });
+  }
+  setTimeout(showDemo,800);
+})();
+
+// === INSTALL TABS ===
+document.querySelectorAll('.install-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.install-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.install-panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-'+tab.dataset.tab).classList.add('active');
+  });
+});
+
+// === COPY BUTTONS ===
+document.querySelectorAll('.copy-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const text=btn.dataset.copy;
+    navigator.clipboard.writeText(text).then(()=>{
+      const orig=btn.textContent;
+      btn.textContent='COPIED!';
+      btn.classList.add('copied');
+      setTimeout(()=>{btn.textContent=orig;btn.classList.remove('copied')},2000);
+    });
+  });
+});
+</script>
+</body>
+</html>
